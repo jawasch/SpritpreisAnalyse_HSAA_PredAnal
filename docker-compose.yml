@@ -27,6 +27,8 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-spritpreis}:${POSTGRES_PASSWORD:-spritpreis123}@db:5432/${POSTGRES_DB:-spritpreis_analytics}
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
     ports:
       - "8000:8000"
     volumes:
@@ -35,7 +37,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
 
   # Frontend
   frontend:
@@ -45,6 +47,7 @@ services:
     container_name: spritpreis_frontend
     environment:
       VITE_API_URL: http://localhost:8000
+      CHOKIDAR_USEPOLLING: "true"
     ports:
       - "3000:3000"
     volumes:
@@ -52,7 +55,7 @@ services:
       - /app/node_modules
     depends_on:
       - backend
-    command: npm run dev
+    command: npm run dev -- --host
 
   # pgAdmin (optional, for database management)
   pgadmin:

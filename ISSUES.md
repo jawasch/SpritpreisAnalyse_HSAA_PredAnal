@@ -1,935 +1,385 @@
-# 📋 Git Issues - Spritpreis Analytics Dashboard
+# 📋 Issues - Spritpreis Analytics Dashboard
 
-Strukturierte Aufgabenliste für die Projektumsetzung.
+Letzte Aktualisierung: Mai 2026
 
 ---
 
-## 🔴 PHASE 1: Dateninfrastruktur (Woche 1-2)
+## 📊 Aktueller Projektstand
+
+| Phase | Status | Fortschritt |
+|-------|--------|-------------|
+| Phase 1: Dateninfrastruktur | 🟡 In Bearbeitung | 2/6 abgeschlossen |
+| Phase 2: Backend Development | ✅ Abgeschlossen | 4/4 abgeschlossen |
+| Phase 3: ML Pipeline | ⬜ Ausstehend | 0/6 abgeschlossen |
+| Phase 4: Frontend Development | ✅ Abgeschlossen | 7/7 abgeschlossen |
+| Phase 5: Integration & Testing | 🟡 In Bearbeitung | 2/3 abgeschlossen |
+| Phase 6: Analyse & Dokumentation | ⬜ Ausstehend | 0/4 abgeschlossen |
+
+---
+
+## 🚦 Nächste Prioritäten
+
+1. **Tankerkönig API-Key** abwarten → `USE_MOCK_DATA=false` in `.env` setzen → fertig
+2. **Issue #5**: Historische Daten importieren (CSV-Pipeline)
+3. **Issue #6**: Explorative Datenanalyse in Jupyter
+4. **Issue #4**: EIA Rohölpreise integrieren
+5. **Issue #10**: Scheduled Jobs (stündlicher Datenabruf)
+6. **Issue #11–15**: ML-Pipeline (Prophet → LSTM → ARIMA)
+
+---
+
+## 🔴 PHASE 1: Dateninfrastruktur
 
 ### Issue #1: API-Keys beantragen und Datenquellen Setup
-**Priority**: High  
-**Labels**: setup, data-sources  
-**Assignee**: Developer
-
-**Beschreibung:**
-Beantragung der notwendigen API-Keys für die Datenquellen.
+**Status**: 🟡 In Bearbeitung — Tankerkönig API-Key beantragt, Genehmigung ausstehend  
+**Priority**: High | **Labels**: setup, data-sources
 
 **Tasks:**
-- [ ] Tankerkönig API-Key beantragen (https://creativecommons.tankerkoenig.de)
-- [ ] EIA (Energy Information Administration) API-Key beantragen (https://www.eia.gov/opendata/)
-- [ ] Zugang zu historischen Tankerkönig-Daten beantragen (Git-Repository)
-- [ ] API-Keys in `.env` Datei eintragen
-- [ ] API-Verbindungen testen
+- [x] Tankerkönig API-Key beantragt (https://creativecommons.tankerkoenig.de)
+- [ ] Tankerkönig API-Key erhalten und in `.env` eingetragen
+- [ ] EIA API-Key beantragt (https://www.eia.gov/opendata/)
+- [ ] Historische Tankerkönig-Daten angefordert (CSV-Repository)
+- [ ] API-Verbindungen getestet (→ `USE_MOCK_DATA=false`)
 
-**Acceptance Criteria:**
-- Alle API-Keys sind vorhanden und funktionieren
-- Testabfragen erfolgreich durchgeführt
+**Hinweis:** `TankerkoenigService` in `backend/app/services/tankerkoenig.py` ist vollständig vorbereitet. Sobald der Key da ist, nur `USE_MOCK_DATA=false` in `.env` setzen.
 
 ---
 
 ### Issue #2: PostgreSQL Datenbank-Schema Design
-**Priority**: High  
-**Labels**: database, architecture  
-**Assignee**: Developer
-
-**Beschreibung:**
-Design und Implementierung des PostgreSQL Datenbank-Schemas für Spritpreise, Tankstellen, Rohölpreise und ML-Modell-Metadaten.
+**Status**: ✅ Abgeschlossen  
+**Priority**: High | **Labels**: database, architecture
 
 **Tasks:**
-- [ ] ER-Diagramm erstellen
-- [ ] SQLAlchemy Models erstellen:
-  - [ ] `GasStation` (Tankstelleninformationen)
-  - [ ] `FuelPrice` (Spritpreise mit Zeitstempel)
-  - [ ] `CrudeOilPrice` (Rohölpreise)
-  - [ ] `PoliticalEvent` (Politische Ereignisse)
-  - [ ] `Prediction` (ML-Vorhersagen)
-  - [ ] `ModelMetadata` (Trainierte Modelle)
-- [ ] Alembic Migrationen erstellen
-- [ ] Indizes für Performance optimieren
-- [ ] Datenbank-Initialisierungs-Skript
-
-**Acceptance Criteria:**
-- Schema ist vollständig dokumentiert
-- Migrationen laufen erfolgreich
-- Performance-Tests bestanden
+- [x] SQLAlchemy Models: `GasStation`, `FuelPrice`, `CrudeOilPrice`, `PoliticalEvent`, `Prediction`, `ModelMetadata`
+- [x] Pydantic Schemas für alle Models
+- [x] Performance-Indizes definiert
+- [ ] Alembic Initialmigration erstellen (`make migration MSG="initial schema"`)
+- [ ] Migration gegen Live-DB ausführen
 
 ---
 
 ### Issue #3: Tankerkönig API Integration
-**Priority**: High  
-**Labels**: integration, data-fetcher  
-**Assignee**: Developer
-
-**Beschreibung:**
-Integration der Tankerkönig API für Echtzeit- und historische Spritpreisdaten.
+**Status**: 🟡 Mock-Betrieb aktiv — Real-Betrieb vorbereitet  
+**Priority**: High | **Labels**: integration, data-fetcher
 
 **Tasks:**
-- [ ] `TankerkoenigService` Klasse erstellen
-- [ ] Methoden implementieren:
-  - [ ] `get_stations_by_radius()` - Umkreissuche
-  - [ ] `get_prices()` - Preisabfrage für mehrere Tankstellen
-  - [ ] `get_station_details()` - Detailabfrage
-- [ ] Rate-Limiting implementieren (1 req/min)
-- [ ] Error-Handling und Retry-Logik
-- [ ] Caching-Mechanismus
-- [ ] Unit-Tests schreiben
-
-**Acceptance Criteria:**
-- Alle API-Endpunkte funktionieren
-- Rate-Limits werden eingehalten
-- Tests mit >80% Coverage
+- [x] `TankerkoenigService` Klasse erstellt (`backend/app/services/tankerkoenig.py`)
+- [x] Mock-Datengenerator mit realistischen DE-Tankstellen (25 Stationen, Ostalbkreis/Stuttgart/Ulm)
+- [x] `get_stations_by_radius()` implementiert (mock + real)
+- [x] `get_prices_for_stations()` implementiert (mock + real)
+- [x] `get_station_detail()` implementiert (mock + real)
+- [x] Preis-Muster: Uhrzeiten, Wochentage, Marken-Offsets, Marktdrift
+- [ ] Rate-Limiting (1 req/min) für Real-Betrieb implementieren
+- [ ] Real-API-Verbindung testen sobald Key vorhanden
 
 ---
 
 ### Issue #4: EIA API Integration für Rohölpreise
-**Priority**: High  
-**Labels**: integration, data-fetcher  
-**Assignee**: Developer
-
-**Beschreibung:**
-Integration der U.S. Energy Information Administration API für Rohölpreisdaten (Brent, WTI).
+**Status**: ⬜ Ausstehend  
+**Priority**: High | **Labels**: integration, data-fetcher
 
 **Tasks:**
-- [ ] `EIAService` Klasse erstellen
-- [ ] Methoden implementieren:
-  - [ ] `get_brent_crude_prices()` - Brent Rohöl
-  - [ ] `get_wti_crude_prices()` - WTI Rohöl
-  - [ ] `get_historical_data()` - Historische Daten
-- [ ] Daten-Transformation (USD/Barrel → EUR/Liter Umrechnung)
-- [ ] Scheduled Jobs für täglichen Import
-- [ ] Unit-Tests schreiben
-
-**Acceptance Criteria:**
-- Rohölpreisdaten werden erfolgreich abgerufen
-- Daten werden korrekt in DB gespeichert
-- Scheduled Jobs laufen stabil
+- [ ] `EIAService` Klasse erstellen (`backend/app/services/eia.py`)
+- [ ] `get_brent_crude_prices()` und `get_wti_crude_prices()`
+- [ ] USD/Barrel → EUR/Liter Umrechnung
+- [ ] Scheduled Job für täglichen Import
+- [ ] Frontend-Integration (Rohölpreis-Overlay im Analytics-Chart)
 
 ---
 
 ### Issue #5: Daten-Import Pipeline für historische Daten
-**Priority**: High  
-**Labels**: data-pipeline, ETL  
-**Assignee**: Developer
-
-**Beschreibung:**
-ETL-Pipeline für Import historischer Spritpreisdaten von Tankerkönig (CSV-Dateien seit 2014).
+**Status**: ⬜ Ausstehend  
+**Priority**: High | **Labels**: data-pipeline, ETL
 
 **Tasks:**
-- [ ] CSV-Parser für Tankerkönig-Format implementieren
-- [ ] Batch-Import-Funktion (große Datenmengen)
-- [ ] Data-Cleaning und Validierung
-- [ ] Duplikatserkennung
-- [ ] Progress-Monitoring
-- [ ] Import-Skript erstellen (`import_historical_data.py`)
-
-**Acceptance Criteria:**
-- Historische Daten (2014-heute) erfolgreich importiert
-- Keine Duplikate in der DB
-- Import-Zeit dokumentiert
+- [ ] CSV-Parser für Tankerkönig-Format (`backend/scripts/import_historical.py`)
+- [ ] Batch-Import mit Progress-Anzeige
+- [ ] Duplikatserkennung (unique constraint auf station_id + timestamp)
+- [ ] Datenvalidierung und Cleaning
+- [ ] `make import` Shortcut im Makefile
 
 ---
 
 ### Issue #6: Explorative Datenanalyse (EDA)
-**Priority**: Medium  
-**Labels**: data-science, jupyter  
-**Assignee**: Developer
-
-**Beschreibung:**
-Explorative Analyse der Spritpreisdaten in Jupyter Notebooks zur Feature-Discovery.
+**Status**: ⬜ Ausstehend — wartet auf historische Daten  
+**Priority**: Medium | **Labels**: data-science, jupyter
 
 **Tasks:**
-- [ ] Jupyter Notebook Setup
-- [ ] Notebooks erstellen:
-  - [ ] `01_data_exploration.ipynb` - Grundlegende Statistiken
-  - [ ] `02_time_patterns.ipynb` - Zeitliche Muster (Uhrzeiten, Wochentage)
-  - [ ] `03_regional_analysis.ipynb` - Regionale Unterschiede
-  - [ ] `04_correlation_analysis.ipynb` - Korrelation Rohöl vs. Spritpreise
-  - [ ] `05_policy_events.ipynb` - Policy Impact Analyse
-- [ ] Visualisierungen erstellen
-- [ ] Findings dokumentieren
-
-**Acceptance Criteria:**
-- Alle Notebooks laufen fehlerfrei
-- Key Insights dokumentiert
-- Visualisierungen exportiert
+- [ ] `notebooks/01_data_exploration.ipynb`
+- [ ] `notebooks/02_time_patterns.ipynb`
+- [ ] `notebooks/03_regional_analysis.ipynb`
+- [ ] `notebooks/04_correlation_crude_oil.ipynb`
+- [ ] `notebooks/05_policy_events.ipynb`
 
 ---
 
-## 🟠 PHASE 2: Backend Development (Woche 3-5)
+## 🟠 PHASE 2: Backend Development
 
 ### Issue #7: FastAPI Routen-Architektur
-**Priority**: High  
-**Labels**: backend, api  
-**Assignee**: Developer
+**Status**: ✅ Abgeschlossen  
+**Priority**: High | **Labels**: backend, api
 
-**Beschreibung:**
-Implementierung der REST API Endpunkte mit FastAPI.
-
-**Tasks:**
-- [ ] API-Router erstellen:
-  - [ ] `prices.py` - Preisabfragen
-  - [ ] `stations.py` - Tankstellensuche
-  - [ ] `predictions.py` - Vorhersagen
-  - [ ] `analytics.py` - Analysen
-  - [ ] `oil_prices.py` - Rohölpreise
-- [ ] Pydantic Schemas für Request/Response
-- [ ] OpenAPI/Swagger Dokumentation
-- [ ] API-Versionierung (v1)
-- [ ] Error-Handling Middleware
-
-**Acceptance Criteria:**
-- Alle Endpunkte dokumentiert
-- Swagger UI funktioniert
-- Error-Handling einheitlich
+- [x] `backend/app/api/stations.py` — `/api/v1/stations/nearby`, `/{id}`
+- [x] `backend/app/api/prices.py` — `/api/v1/prices/current`, `/history`
+- [x] `backend/app/api/analytics.py` — `/api/v1/analytics/heatmap`, `/best-time`
+- [x] `backend/app/api/predictions.py` — `/api/v1/predictions/short-term`
+- [x] Swagger UI unter `http://localhost:8000/docs`
 
 ---
 
 ### Issue #8: Prices API Endpoints
-**Priority**: High  
-**Labels**: backend, api, prices  
-**Assignee**: Developer
+**Status**: ✅ Abgeschlossen  
+**Priority**: High | **Labels**: backend, api, prices
 
-**Beschreibung:**
-REST API Endpunkte für Spritpreis-Abfragen.
-
-**Endpoints:**
-- `GET /api/v1/prices/current` - Aktuelle Preise
-- `GET /api/v1/prices/history` - Historische Preise
-- `GET /api/v1/prices/average` - Durchschnittspreise
-- `GET /api/v1/prices/trends` - Preistrends
-
-**Tasks:**
-- [ ] Endpunkte implementieren
-- [ ] Query-Parameter (fuel_type, region, date_range)
-- [ ] Pagination implementieren
-- [ ] Response-Caching
-- [ ] Unit-Tests
-
-**Acceptance Criteria:**
-- Alle Endpunkte funktional
-- Response-Zeiten <500ms
-- Tests mit >80% Coverage
+- [x] `GET /api/v1/prices/current?ids=`
+- [x] `GET /api/v1/prices/history?fuel_type=&days=`
+- [x] Query-Parameter Validierung (Pydantic / FastAPI)
 
 ---
 
 ### Issue #9: Stations API Endpoints
-**Priority**: High  
-**Labels**: backend, api, stations  
-**Assignee**: Developer
+**Status**: ✅ Abgeschlossen  
+**Priority**: High | **Labels**: backend, api, stations
 
-**Beschreibung:**
-REST API Endpunkte für Tankstellensuche und -informationen.
-
-**Endpoints:**
-- `GET /api/v1/stations/nearby` - Tankstellen in der Nähe
-- `GET /api/v1/stations/{station_id}` - Tankstellen-Details
-- `GET /api/v1/stations/cheapest` - Günstigste Tankstellen
-- `GET /api/v1/stations/compare` - Tankstellen-Vergleich
-
-**Tasks:**
-- [ ] Endpunkte implementieren
-- [ ] Geo-Suche (Radius-Search)
-- [ ] Sortierung und Filterung
-- [ ] Unit-Tests
-
-**Acceptance Criteria:**
-- Geo-Suche funktioniert präzise
-- Sortierung korrekt
-- Tests vorhanden
+- [x] `GET /api/v1/stations/nearby?lat=&lng=&rad=&type=&sort=`
+- [x] `GET /api/v1/stations/{station_id}`
+- [x] Geo-Suche (Haversine-Formel)
+- [x] Sortierung nach Entfernung und Preis
 
 ---
 
 ### Issue #10: Scheduled Jobs Implementation
-**Priority**: Medium  
-**Labels**: backend, scheduler  
-**Assignee**: Developer
-
-**Beschreibung:**
-Automatisierte Jobs für regelmäßigen Datenabruf und Modell-Retraining.
+**Status**: ⬜ Ausstehend — wartet auf Real-API  
+**Priority**: Medium | **Labels**: backend, scheduler
 
 **Tasks:**
-- [ ] APScheduler Setup
-- [ ] Jobs implementieren:
-  - [ ] `fetch_current_prices_job` - Stündlich
-  - [ ] `fetch_oil_prices_job` - Täglich
-  - [ ] `retrain_models_job` - Wöchentlich
-  - [ ] `cleanup_old_data_job` - Monatlich
-- [ ] Job-Monitoring und Logging
-- [ ] Error-Notifications
-- [ ] Job-Status-API
-
-**Acceptance Criteria:**
-- Alle Jobs laufen zuverlässig
-- Logging vollständig
-- Error-Handling robust
+- [ ] APScheduler in `backend/app/services/scheduler.py` einrichten
+- [ ] `fetch_current_prices_job` — stündlich
+- [ ] `fetch_oil_prices_job` — täglich
+- [ ] `retrain_models_job` — wöchentlich
+- [ ] Job-Status-Endpoint `GET /api/v1/admin/jobs`
 
 ---
 
-## 🟡 PHASE 3: ML Pipeline (Woche 6-8)
+## 🟡 PHASE 3: ML Pipeline
 
 ### Issue #11: Feature Engineering Pipeline
-**Priority**: High  
-**Labels**: ml, data-science  
-**Assignee**: Developer
+**Status**: ⬜ Ausstehend  
+**Priority**: High | **Labels**: ml, data-science
 
-**Beschreibung:**
-Feature Engineering für Predictive Analytics Modelle.
-
-**Tasks:**
-- [ ] `FeatureEngineer` Klasse erstellen
-- [ ] Zeitbasierte Features:
-  - [ ] Stunde, Wochentag, Monat, Feiertag
-  - [ ] Zyklische Transformation (sin/cos)
-- [ ] Lag Features:
-  - [ ] Preise vor 1h, 6h, 24h, 7d, 30d
-- [ ] Rolling Statistics:
-  - [ ] Moving Average (7d, 30d)
-  - [ ] Volatilität
-  - [ ] Min/Max im Zeitfenster
-- [ ] Externe Features:
-  - [ ] Rohölpreis
-  - [ ] USD/EUR Wechselkurs
-  - [ ] Politische Events (Binary)
-- [ ] Feature-Scaling (StandardScaler)
-- [ ] Pipeline-Tests
-
-**Acceptance Criteria:**
-- Feature-Pipeline dokumentiert
-- Reproduzierbare Features
-- Tests vorhanden
+- [ ] `backend/app/ml/features.py` — `FeatureEngineer` Klasse
+- [ ] Zeitbasierte Features (Stunde, Wochentag, Monat, zyklisch sin/cos)
+- [ ] Lag-Features (1h, 6h, 24h, 7d)
+- [ ] Rolling Statistics (MA 7d, 30d, Volatilität)
+- [ ] Externe Features (Rohölpreis, Wechselkurs)
 
 ---
 
 ### Issue #12: Prophet Forecasting Model
-**Priority**: High  
-**Labels**: ml, prophet, forecasting  
-**Assignee**: Developer
+**Status**: ⬜ Ausstehend  
+**Priority**: High | **Labels**: ml, prophet
 
-**Beschreibung:**
-Implementierung des Facebook Prophet Modells für Zeitreihen-Vorhersagen.
-
-**Tasks:**
-- [ ] `ProphetModel` Klasse erstellen
-- [ ] Hyperparameter-Tuning:
-  - [ ] `changepoint_prior_scale`
-  - [ ] `seasonality_prior_scale`
-  - [ ] Custom Seasonalities
-- [ ] Feiertage-Integration
-- [ ] Model-Training Pipeline
-- [ ] Prediction-Funktion
-- [ ] Konfidenzintervalle
-- [ ] Model-Evaluation (RMSE, MAE, MAPE)
+- [ ] `backend/app/ml/prophet_model.py`
+- [ ] Hyperparameter-Tuning, Feiertage-Integration
+- [ ] MAPE-Ziel: < 10 % auf Test-Set
 - [ ] Model-Persistierung (Pickle)
-
-**Acceptance Criteria:**
-- Modell trainiert erfolgreich
-- MAPE <10% auf Test-Set
-- Vorhersagen plausibel
 
 ---
 
 ### Issue #13: LSTM Deep Learning Model
-**Priority**: Medium  
-**Labels**: ml, tensorflow, deep-learning  
-**Assignee**: Developer
+**Status**: ⬜ Ausstehend  
+**Priority**: Medium | **Labels**: ml, tensorflow
 
-**Beschreibung:**
-LSTM Modell für komplexe Zeitreihenvorhersagen mit TensorFlow/Keras.
-
-**Tasks:**
-- [ ] `LSTMModel` Klasse erstellen
-- [ ] Sequence-Preparation (Lookback-Window)
-- [ ] LSTM-Architektur:
-  - [ ] Input Layer
-  - [ ] 2-3 LSTM Layers
-  - [ ] Dropout Regularization
-  - [ ] Dense Output Layer
-- [ ] Training mit Callbacks:
-  - [ ] EarlyStopping
-  - [ ] ModelCheckpoint
-  - [ ] ReduceLROnPlateau
-- [ ] Multi-Step Forecasting
-- [ ] Model-Evaluation
-- [ ] Model-Speicherung (SavedModel)
-
-**Acceptance Criteria:**
-- LSTM-Modell konvergiert
-- Performance besser als Baseline
-- Inference-Zeit <100ms
+- [ ] `backend/app/ml/lstm_model.py`
+- [ ] LSTM-Architektur (2–3 Layer, Dropout)
+- [ ] EarlyStopping, ModelCheckpoint Callbacks
+- [ ] Inference-Ziel: < 100 ms
 
 ---
 
 ### Issue #14: ARIMA/SARIMAX Statistical Model
-**Priority**: Medium  
-**Labels**: ml, statistics, time-series  
-**Assignee**: Developer
+**Status**: ⬜ Ausstehend  
+**Priority**: Medium | **Labels**: ml, statistics
 
-**Beschreibung:**
-Klassische statistische Zeitreihenmodelle mit statsmodels.
-
-**Tasks:**
-- [ ] `ARIMAModel` Klasse erstellen
+- [ ] `backend/app/ml/arima_model.py`
 - [ ] Stationaritäts-Tests (ADF, KPSS)
-- [ ] ACF/PACF Analyse
-- [ ] Parameter-Optimierung (p, d, q)
-- [ ] SARIMAX mit exogenen Variablen
-- [ ] Residuen-Analyse
-- [ ] Forecasting-Funktion
-- [ ] Model-Comparison
-
-**Acceptance Criteria:**
-- Modell statistisch valide
-- Residuen sind White Noise
-- Dokumentation vollständig
+- [ ] SARIMAX mit exogenen Variablen (Rohöl)
 
 ---
 
-### Issue #15: Model Evaluation & Comparison Framework
-**Priority**: Medium  
-**Labels**: ml, evaluation  
-**Assignee**: Developer
+### Issue #15: Model Evaluation Framework
+**Status**: ⬜ Ausstehend  
+**Priority**: Medium | **Labels**: ml, evaluation
 
-**Beschreibung:**
-Framework zum Vergleich und Evaluation verschiedener ML-Modelle.
-
-**Tasks:**
-- [ ] `ModelEvaluator` Klasse erstellen
-- [ ] Metriken implementieren:
-  - [ ] RMSE (Root Mean Squared Error)
-  - [ ] MAE (Mean Absolute Error)
-  - [ ] MAPE (Mean Absolute Percentage Error)
-  - [ ] R² Score
-- [ ] Cross-Validation
+- [ ] `backend/app/ml/evaluator.py` — RMSE, MAE, MAPE, R²
 - [ ] Backtesting auf historischen Daten
-- [ ] Visualisierung (Actual vs. Predicted)
 - [ ] Model-Comparison-Report
-- [ ] Best-Model-Selection
-
-**Acceptance Criteria:**
-- Alle Metriken berechnet
-- Vergleichs-Report generiert
-- Best Model ausgewählt
 
 ---
 
 ### Issue #16: Prediction Service Integration
-**Priority**: High  
-**Labels**: ml, backend, api  
-**Assignee**: Developer
+**Status**: 🟡 Mock-Implementierung aktiv  
+**Priority**: High | **Labels**: ml, backend, api
 
-**Beschreibung:**
-Integration der ML-Modelle in die FastAPI Backend-Services.
-
-**Tasks:**
-- [ ] `PredictionService` Klasse erstellen
-- [ ] Model-Loading (Prophet, LSTM, ARIMA)
-- [ ] Prediction-API Endpoints:
-  - [ ] `POST /api/v1/predictions/short-term` (24-72h)
-  - [ ] `POST /api/v1/predictions/medium-term` (1-4 Wochen)
-  - [ ] `GET /api/v1/predictions/best-time` (Beste Tankzeit)
-- [ ] Ensemble-Predictions (Weighted Average)
-- [ ] Caching von Predictions
+- [x] `GET /api/v1/predictions/short-term` — regelbasierte Mock-Prognose mit Konfidenzband
+- [ ] Echte ML-Modelle laden (Prophet, LSTM, ARIMA)
+- [ ] Ensemble-Prognose (Weighted Average)
 - [ ] Async-Processing für lange Berechnungen
-
-**Acceptance Criteria:**
-- Predictions via API abrufbar
-- Response-Zeiten akzeptabel
-- Caching funktioniert
 
 ---
 
-## 🔵 PHASE 4: Frontend Development (Woche 9-11)
+## 🔵 PHASE 4: Frontend Development
 
 ### Issue #17: React Project Setup & Architecture
-**Priority**: High  
-**Labels**: frontend, react, setup  
-**Assignee**: Developer
+**Status**: ✅ Abgeschlossen  
+**Priority**: High | **Labels**: frontend, react, setup
 
-**Beschreibung:**
-Initialisierung des React Frontend-Projekts mit modernem Setup.
-
-**Tasks:**
-- [ ] Vite oder Create-React-App Setup
-- [ ] Project-Struktur erstellen
-- [ ] Dependencies installieren:
-  - [ ] React Router
-  - [ ] Axios
-  - [ ] D3.js
-  - [ ] Tailwind CSS / Material-UI
-  - [ ] date-fns
-- [ ] ESLint & Prettier Setup
-- [ ] Environment Variables (.env)
-- [ ] API-Service-Layer
-- [ ] Routing-Struktur
-
-**Acceptance Criteria:**
-- Projekt läuft lokal
-- Development-Server funktioniert
-- Build erfolgreich
+- [x] Vite + React 18, React Router v6
+- [x] Tailwind CSS + PostCSS konfiguriert
+- [x] D3 v7, Leaflet/React-Leaflet eingebunden
+- [x] Axios API-Service-Layer
 
 ---
 
 ### Issue #18: Dashboard Main Component
-**Priority**: High  
-**Labels**: frontend, dashboard  
-**Assignee**: Developer
+**Status**: ✅ Abgeschlossen  
+**Priority**: High | **Labels**: frontend, dashboard
 
-**Beschreibung:**
-Haupt-Dashboard-Komponente mit Overview und Navigation.
-
-**Tasks:**
-- [ ] `Dashboard.jsx` erstellen
-- [ ] Layout (Header, Sidebar, Main Content)
-- [ ] Aktuelle Durchschnittspreise anzeigen
-- [ ] Tages-Trend Indikator (↑↓)
-- [ ] Quick-Stats Cards
-- [ ] Navigation zu Sub-Pages
-- [ ] Responsive Design
-
-**Acceptance Criteria:**
-- Dashboard zeigt Live-Daten
-- Layout responsive
-- Navigation funktioniert
+- [x] Preiskarten E5 / E10 / Diesel mit Tagesdelta
+- [x] „Beste Tankzeit"-Empfehlung
+- [x] 30-Tage Preisentwicklungs-Chart
+- [x] Nahgelegene Tankstellen-Tabelle
 
 ---
 
 ### Issue #19: D3.js Price Chart Components
-**Priority**: High  
-**Labels**: frontend, d3js, visualization  
-**Assignee**: Developer
+**Status**: ✅ Abgeschlossen  
+**Priority**: High | **Labels**: frontend, d3js
 
-**Beschreibung:**
-Interaktive Preis-Charts mit D3.js.
-
-**Components:**
-- [ ] `PriceLineChart.jsx` - Zeitreihen Liniendiagramm
-- [ ] `PredictionChart.jsx` - Vorhersagen mit Konfidenzintervallen
-- [ ] `ComparisonChart.jsx` - Multi-Series Vergleich
-
-**Features:**
-- [ ] Zoom & Pan
-- [ ] Tooltip on Hover
-- [ ] Zeitraum-Auswahl (1D, 1W, 1M, 1Y, All)
-- [ ] Fuel-Type Toggle (E5, E10, Diesel)
-- [ ] Export als PNG
-
-**Acceptance Criteria:**
-- Charts laden schnell (<1s)
-- Interaktionen flüssig
-- Responsive auf Mobile
+- [x] `PriceLineChart.jsx` — Multi-Serie Zeitreihe mit Tooltip
+- [x] `PredictionChart.jsx` — Prognose mit Konfidenzband, „Jetzt"-Marker
 
 ---
 
 ### Issue #20: Heatmap für Uhrzeitanalyse
-**Priority**: Medium  
-**Labels**: frontend, d3js, visualization  
-**Assignee**: Developer
+**Status**: ✅ Abgeschlossen  
+**Priority**: Medium | **Labels**: frontend, d3js
 
-**Beschreibung:**
-Heatmap zur Visualisierung der Preise nach Uhrzeit und Wochentag.
-
-**Tasks:**
-- [ ] `TimeHeatmap.jsx` erstellen
-- [ ] D3.js Heatmap implementieren
-- [ ] X-Axis: Stunden (0-23)
-- [ ] Y-Axis: Wochentage
-- [ ] Farbskala (grün=günstig, rot=teuer)
-- [ ] Tooltip mit exakten Werten
-- [ ] Best-Time Highlight
-
-**Acceptance Criteria:**
-- Heatmap klar lesbar
-- Farbskala intuitiv
-- Performance gut
+- [x] `TimeHeatmap.jsx` — 24 h × 7 Wochentage, Farbskala grün→rot
+- [x] Tooltip mit Preis und Abweichung vom Durchschnitt
+- [x] Farblegend
 
 ---
 
 ### Issue #21: Interactive Map Component
-**Priority**: Medium  
-**Labels**: frontend, maps  
-**Assignee**: Developer
+**Status**: ✅ Abgeschlossen  
+**Priority**: Medium | **Labels**: frontend, maps
 
-**Beschreibung:**
-Interaktive Karte mit Tankstellen und Preisen.
-
-**Tasks:**
-- [ ] `StationMap.jsx` erstellen
-- [ ] Kartenbibliothek auswählen (Leaflet / Mapbox)
-- [ ] Tankstellen als Marker
-- [ ] Marker-Color nach Preis
-- [ ] Popup mit Station-Details
-- [ ] Filter (Fuel-Type, Price-Range)
-- [ ] Geo-Location des Users
-- [ ] Radius-Search
-
-**Acceptance Criteria:**
-- Karte zeigt alle Stationen
-- Performance mit 1000+ Marker
-- Geo-Location funktioniert
+- [x] `StationMap.jsx` — React-Leaflet mit OpenStreetMap
+- [x] Farbkodierte Marker (grün=günstig, rot=teuer)
+- [x] Popup mit allen Kraftstoffpreisen und Öffnungsstatus
+- [x] Suchradius-Kreis
 
 ---
 
 ### Issue #22: Policy Impact Timeline
-**Priority**: Low  
-**Labels**: frontend, visualization  
-**Assignee**: Developer
+**Status**: ⬜ Ausstehend  
+**Priority**: Low | **Labels**: frontend, visualization
 
-**Beschreibung:**
-Timeline-Komponente für politische Ereignisse und deren Auswirkungen.
-
-**Tasks:**
-- [ ] `PolicyTimeline.jsx` erstellen
-- [ ] Ereignisse als Timeline
-- [ ] Ereignis-Details (Name, Datum, Beschreibung)
-- [ ] Preis-Overlay (Vorher/Nachher)
-- [ ] Statistical Significance Indicator
-- [ ] Zoom auf Ereignis
-
-**Acceptance Criteria:**
-- Timeline übersichtlich
-- Ereignisse vollständig
-- Preis-Korrelation sichtbar
+- [ ] `PolicyTimeline.jsx` — D3 Timeline für politische Ereignisse
+- [ ] Vorher/Nachher-Preisvergleich
+- [ ] Statistische Signifikanz-Indikator
 
 ---
 
 ### Issue #23: API Service Layer (Frontend)
-**Priority**: High  
-**Labels**: frontend, api  
-**Assignee**: Developer
+**Status**: ✅ Abgeschlossen  
+**Priority**: High | **Labels**: frontend, api
 
-**Beschreibung:**
-Zentraler API-Service für Frontend-Backend-Kommunikation.
-
-**Tasks:**
-- [ ] `api.js` erstellen
-- [ ] Axios-Instanz konfigurieren
-- [ ] API-Methoden:
-  - [ ] `fetchCurrentPrices()`
-  - [ ] `fetchPriceHistory()`
-  - [ ] `fetchNearbyStations()`
-  - [ ] `fetchPredictions()`
-  - [ ] `fetchAnalytics()`
-- [ ] Error-Handling
-- [ ] Loading States
-- [ ] Request Cancellation
-- [ ] Retry-Logic
-
-**Acceptance Criteria:**
-- Alle API-Calls funktionieren
-- Error-Handling robust
-- TypeScript-Types (optional)
+- [x] `frontend/src/services/api.js` — Axios-Client mit Basis-URL
+- [x] Alle Endpunkte: stations, prices, analytics, predictions
+- [x] Zentrale Konstanten: `FUEL_COLORS`, `FUEL_LABELS`, `WEEKDAY_LABELS`
 
 ---
 
-## 🟢 PHASE 5: Integration & Testing (Woche 12)
+## 🟢 PHASE 5: Integration & Testing
 
 ### Issue #24: End-to-End Integration
-**Priority**: High  
-**Labels**: integration, testing  
-**Assignee**: Developer
+**Status**: ✅ Abgeschlossen (Mock-Betrieb)  
+**Priority**: High | **Labels**: integration
 
-**Beschreibung:**
-Vollständige Integration aller Komponenten und E2E-Tests.
-
-**Tasks:**
-- [ ] Frontend-Backend Integration testen
-- [ ] API-Endpoints End-to-End testen
-- [ ] ML-Predictions integrieren
-- [ ] Database Queries optimieren
-- [ ] Error-Handling durchgängig
-- [ ] Performance-Tests
-- [ ] Load-Tests
-
-**Acceptance Criteria:**
-- Alle Features funktionieren zusammen
-- Keine kritischen Bugs
-- Performance-Ziele erreicht
+- [x] Frontend ↔ Backend vollständig verbunden (alle 4 Seiten)
+- [x] Fehlerbehandlung und Loading-States im Frontend
+- [ ] Re-Test mit echten Tankerkönig-Daten
 
 ---
 
 ### Issue #25: Docker Setup & Containerization
-**Priority**: High  
-**Labels**: docker, devops  
-**Assignee**: Developer
+**Status**: ✅ Abgeschlossen  
+**Priority**: High | **Labels**: docker, devops
 
-**Beschreibung:**
-Docker-Setup für lokale Entwicklung und Deployment.
-
-**Tasks:**
-- [ ] Dockerfile für Backend erstellen
-- [ ] Dockerfile für Frontend erstellen
-- [ ] docker-compose.yml:
-  - [ ] Backend Service
-  - [ ] Frontend Service
-  - [ ] PostgreSQL Service
-  - [ ] pgAdmin (optional)
-- [ ] Environment Variables
-- [ ] Volume Mapping (Data Persistence)
-- [ ] Networking
-- [ ] Health Checks
-- [ ] README für Docker-Setup
-
-**Acceptance Criteria:**
-- `docker-compose up` startet alles
-- Services kommunizieren
-- Data Persistence funktioniert
+- [x] `Dockerfile` Backend + Frontend
+- [x] `docker-compose.yml` — db, backend, frontend, pgAdmin (dev-Profile)
+- [x] Health-Check auf PostgreSQL
+- [x] Volume-Mapping für Hot-Reload
+- [x] `Makefile` mit `make dev`, `make test`, `make shell-db`, `make migration` u.v.m.
 
 ---
 
 ### Issue #26: Testing & Test Coverage
-**Priority**: Medium  
-**Labels**: testing, quality  
-**Assignee**: Developer
+**Status**: 🟡 Backend abgeschlossen — Frontend ausstehend  
+**Priority**: Medium | **Labels**: testing, quality
 
-**Beschreibung:**
-Umfassende Tests für Backend und Frontend.
-
-**Backend:**
-- [ ] Unit-Tests (pytest)
-- [ ] Integration-Tests
-- [ ] API-Tests
-- [ ] ML-Model-Tests
-
-**Frontend:**
-- [ ] Component-Tests (Jest, React Testing Library)
-- [ ] Integration-Tests
-- [ ] E2E-Tests (optional: Cypress/Playwright)
-
-**Target:**
-- Backend: >80% Coverage
-- Frontend: >70% Coverage
-
-**Acceptance Criteria:**
-- Coverage-Ziele erreicht
-- CI Pipeline (optional)
-- Tests dokumentiert
+- [x] `backend/tests/conftest.py` — Session-scoped TestClient
+- [x] `backend/tests/test_mock_data.py` — Unit-Tests (mock data generator)
+- [x] `backend/tests/test_api.py` — Integrations-Tests alle Endpoints
+- [x] `backend/pytest.ini` konfiguriert
+- [ ] Frontend Component-Tests (Jest / React Testing Library)
+- [ ] E2E-Tests (Cypress / Playwright)
 
 ---
 
-## 🟣 PHASE 6: Analyse & Dokumentation (Woche 13-14)
+## 🟣 PHASE 6: Analyse & Dokumentation
 
 ### Issue #27: Policy Impact Analysis Research
-**Priority**: Medium  
-**Labels**: data-science, research  
-**Assignee**: Developer
-
-**Beschreibung:**
-Wissenschaftliche Analyse der Auswirkungen politischer Eingriffe auf Spritpreise.
-
-**Events to Analyze:**
-- [ ] CO2-Steuer Einführung (2021)
-- [ ] Mehrwertsteuersenkung (2020)
-- [ ] Tankrabatt (Juni-Aug 2022)
-- [ ] Ukraine-Krieg (Feb 2022)
-
-**Tasks:**
-- [ ] Jupyter Notebook erstellen
-- [ ] Statistical Tests:
-  - [ ] T-Tests (Vorher/Nachher)
-  - [ ] ANOVA
-  - [ ] Interrupted Time Series Analysis
-- [ ] Effektgrößen berechnen
-- [ ] Visualisierungen
-- [ ] Findings dokumentieren
-
-**Acceptance Criteria:**
-- Alle Events analysiert
-- Statistical Significance berechnet
-- Report erstellt
+**Status**: ⬜ Ausstehend — wartet auf historische Daten  
+**Priority**: Medium | **Labels**: data-science, research
 
 ---
 
 ### Issue #28: Model Performance Documentation
-**Priority**: Medium  
-**Labels**: documentation, ml  
-**Assignee**: Developer
-
-**Beschreibung:**
-Dokumentation der ML-Modelle und deren Performance.
-
-**Tasks:**
-- [ ] Model-Comparison-Report
-- [ ] Hyperparameter-Dokumentation
-- [ ] Performance-Metriken
-- [ ] Confusion Matrix (falls relevant)
-- [ ] Feature-Importance-Analyse
-- [ ] Training-Time und Inference-Time
-- [ ] Model-Selection-Rationale
-
-**Acceptance Criteria:**
-- Alle Modelle dokumentiert
-- Vergleich transparent
-- Reproduzierbar
+**Status**: ⬜ Ausstehend — wartet auf ML-Pipeline  
+**Priority**: Medium | **Labels**: documentation, ml
 
 ---
 
 ### Issue #29: Studienprojekt Dokumentation
-**Priority**: High  
-**Labels**: documentation, academic  
-**Assignee**: Developer
-
-**Beschreibung:**
-Vollständige Dokumentation für das Studienprojekt (Hochschule Aalen).
-
-**Sections:**
-- [ ] 1. Einleitung & Motivation
-- [ ] 2. Datenquellen & Datenbeschaffung
-- [ ] 3. Datenbank-Design
-- [ ] 4. Explorative Datenanalyse
-- [ ] 5. Feature Engineering
-- [ ] 6. Predictive Analytics Methoden
-- [ ] 7. Model-Training & Evaluation
-- [ ] 8. Backend-Architektur
-- [ ] 9. Frontend-Implementation
-- [ ] 10. Policy Impact Analysis
-- [ ] 11. Ergebnisse & Erkenntnisse
-- [ ] 12. Fazit & Ausblick
-
-**Format:** PDF (LaTeX oder Markdown → PDF)
-
-**Acceptance Criteria:**
-- Dokumentation vollständig
-- Wissenschaftlich fundiert
-- Grafiken und Tabellen eingebunden
+**Status**: ⬜ Ausstehend  
+**Priority**: High | **Labels**: documentation, academic
 
 ---
 
-### Issue #30: Präsentationsmaterialien erstellen
-**Priority**: Medium  
-**Labels**: presentation  
-**Assignee**: Developer
-
-**Beschreibung:**
-Präsentations-Slides für Projektvorstellung.
-
-**Tasks:**
-- [ ] PowerPoint/Keynote/Reveal.js Präsentation
-- [ ] Slides:
-  - [ ] Problemstellung
-  - [ ] Datenquellen
-  - [ ] Technologie-Stack
-  - [ ] Architektur
-  - [ ] ML-Methoden
-  - [ ] Dashboard-Demo (Screenshots)
-  - [ ] Key Findings
-  - [ ] Live-Demo (optional)
-  - [ ] Q&A
-- [ ] Sprechnotizen
-- [ ] Demo-Video (optional)
-
-**Acceptance Criteria:**
-- Präsentation vollständig
-- Zeitrahmen: 15-20 Min
-- Visuell ansprechend
+### Issue #30: Präsentationsmaterialien
+**Status**: ⬜ Ausstehend  
+**Priority**: Medium | **Labels**: presentation
 
 ---
 
-## 📌 Zusätzliche Issues (Optional)
+## 📌 Optionale Issues (#31–33)
 
-### Issue #31: Cloudflare Tunnel Deployment
-**Priority**: Low  
-**Labels**: deployment, infrastructure  
-**Assignee**: Developer
-
-**Beschreibung:**
-Deployment mit Cloudflare Tunnel für externe Erreichbarkeit.
-
-**Tasks:**
-- [ ] Cloudflare Account Setup
-- [ ] Tunnel erstellen
-- [ ] Domain konfigurieren
-- [ ] SSL/TLS Setup
-- [ ] Backend via Tunnel
-- [ ] Frontend via Tunnel
-- [ ] Monitoring
+| # | Thema | Status |
+|---|-------|--------|
+| 31 | Cloudflare Tunnel Deployment | ⬜ Optional |
+| 32 | Push-Benachrichtigungssystem | ⬜ Optional |
+| 33 | User Accounts & Authentication | ⬜ Optional |
 
 ---
 
-### Issue #32: Benachrichtigungssystem
-**Priority**: Low  
-**Labels**: feature, notifications  
-**Assignee**: Developer
+## 🏷️ Legende
 
-**Beschreibung:**
-Push-Benachrichtigungen wenn Preise unter Schwellwert fallen.
-
-**Tasks:**
-- [ ] User Preferences (Schwellwerte)
-- [ ] Push-Notification Service
-- [ ] Email-Benachrichtigungen
-- [ ] Frontend-Integration
-
----
-
-### Issue #33: User Accounts & Authentication
-**Priority**: Low  
-**Labels**: feature, auth  
-**Assignee**: Developer
-
-**Beschreibung:**
-User-Accounts für personalisierte Features.
-
-**Tasks:**
-- [ ] JWT Authentication
-- [ ] User Registration/Login
-- [ ] Favoriten-Tankstellen
-- [ ] Preis-Alerts
-- [ ] Preference Storage
-
----
-
-## 📊 Issue Status Tracking
-
-**Total Issues:** 33  
-**Phase 1:** 6 Issues  
-**Phase 2:** 4 Issues  
-**Phase 3:** 6 Issues  
-**Phase 4:** 7 Issues  
-**Phase 5:** 3 Issues  
-**Phase 6:** 4 Issues  
-**Optional:** 3 Issues
-
----
-
-## 🏷️ Label Definitions
-
-- `setup` - Initial setup tasks
-- `data-sources` - Data acquisition
-- `database` - Database-related
-- `architecture` - System design
-- `integration` - Third-party integrations
-- `data-fetcher` - Data fetching services
-- `data-pipeline` - ETL pipelines
-- `data-science` - Data science tasks
-- `jupyter` - Jupyter notebooks
-- `backend` - Backend development
-- `api` - API development
-- `scheduler` - Scheduled jobs
-- `ml` - Machine learning
-- `prophet` - Prophet model
-- `tensorflow` - TensorFlow/Keras
-- `deep-learning` - Deep learning
-- `statistics` - Statistical models
-- `time-series` - Time series analysis
-- `evaluation` - Model evaluation
-- `frontend` - Frontend development
-- `react` - React-specific
-- `d3js` - D3.js visualizations
-- `visualization` - Data visualization
-- `maps` - Map components
-- `testing` - Testing tasks
-- `quality` - Quality assurance
-- `docker` - Docker/containerization
-- `devops` - DevOps tasks
-- `documentation` - Documentation
-- `academic` - Academic documentation
-- `presentation` - Presentation materials
-- `deployment` - Deployment tasks
-- `infrastructure` - Infrastructure
-- `feature` - New features
-- `notifications` - Notifications
-- `auth` - Authentication/Authorization
-
----
-
-**Letzte Aktualisierung:** Mai 2026
+| Symbol | Bedeutung |
+|--------|-----------|
+| ✅ | Vollständig abgeschlossen |
+| 🟡 | In Bearbeitung / teilweise fertig |
+| ⬜ | Noch nicht begonnen |
+| 🔴 | Blockiert |

@@ -1,55 +1,24 @@
-import React from 'react'
-import './App.css'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import Sidebar from './components/layout/Sidebar'
+import Dashboard from './pages/Dashboard'
+import Stations from './pages/Stations'
+import Analytics from './pages/Analytics'
+import Predictions from './pages/Predictions'
 
-function App() {
+export default function App() {
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>🚗⛽ Spritpreis Analytics Dashboard</h1>
-        <p>Transparente Spritpreis-Analyse und -Vorhersage</p>
-      </header>
-      
-      <main className="app-main">
-        <div className="welcome-section">
-          <h2>Willkommen</h2>
-          <p>Das Dashboard wird in Kürze verfügbar sein.</p>
-          
-          <div className="status-cards">
-            <div className="status-card">
-              <h3>Backend Status</h3>
-              <p className="status pending">⏳ In Entwicklung</p>
-            </div>
-            
-            <div className="status-card">
-              <h3>Datenquellen</h3>
-              <p className="status pending">⏳ Konfiguration ausstehend</p>
-            </div>
-            
-            <div className="status-card">
-              <h3>ML-Modelle</h3>
-              <p className="status pending">⏳ Training ausstehend</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="features-section">
-          <h2>Geplante Features</h2>
-          <ul>
-            <li>📊 Echtzeit-Preisanalyse von 14.000+ Tankstellen</li>
-            <li>🔮 Predictive Analytics für Preisentwicklungen</li>
-            <li>⏰ Uhrzeitanalyse: Wann ist tanken am günstigsten?</li>
-            <li>🗺️ Interaktive Karte mit Tankstellen</li>
-            <li>📈 Rohölpreis-Korrelation</li>
-            <li>🏛️ Policy Impact Analysis</li>
-          </ul>
-        </div>
-      </main>
-      
-      <footer className="app-footer">
-        <p>Studienprojekt - Predictive Analytics | Hochschule Aalen</p>
-      </footer>
-    </div>
+    <BrowserRouter>
+      <div className="flex h-screen overflow-hidden bg-gray-50">
+        <Sidebar />
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/stations" element={<Stations />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/predictions" element={<Predictions />} />
+          </Routes>
+        </main>
+      </div>
+    </BrowserRouter>
   )
 }
-
-export default App

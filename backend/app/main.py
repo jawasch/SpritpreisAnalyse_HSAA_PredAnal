@@ -4,9 +4,10 @@ Main application entry point
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 import os
 from dotenv import load_dotenv
+
+from .api import stations, prices, analytics, predictions
 
 # Load environment variables
 load_dotenv()
@@ -55,12 +56,10 @@ async def health_check():
     }
 
 
-# API routes will be included here
-# TODO: Include routers from api/ module
-# app.include_router(prices.router, prefix="/api/v1/prices", tags=["Prices"])
-# app.include_router(predictions.router, prefix="/api/v1/predictions", tags=["Predictions"])
-# app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
-# app.include_router(stations.router, prefix="/api/v1/stations", tags=["Stations"])
+app.include_router(stations.router, prefix="/api/v1/stations", tags=["Stations"])
+app.include_router(prices.router, prefix="/api/v1/prices", tags=["Prices"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
+app.include_router(predictions.router, prefix="/api/v1/predictions", tags=["Predictions"])
 
 
 if __name__ == "__main__":
