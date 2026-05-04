@@ -25,16 +25,6 @@ ipykernel      # ✅ Verwendet
 plotly         # ✅ Verwendet für interaktive Plots
 
 # ========================================
-# ⚠️ BEREITS VORHANDEN & NICHT VERWENDET
-# ========================================
-
-streamlit      # ❌ NICHT verwendet (wir nutzen FastAPI + React)
-pygame         # ❌ NICHT verwendet (nicht relevant)
-pyopengl       # ❌ NICHT verwendet (nicht relevant)
-pillow         # ❌ NICHT verwendet (keine Bildverarbeitung)
-opencv-python  # ❌ NICHT verwendet (keine Computer Vision)
-
-# ========================================
 # 🆕 ZUSÄTZLICH BENÖTIGT FÜR DAS PROJEKT
 # ========================================
 
