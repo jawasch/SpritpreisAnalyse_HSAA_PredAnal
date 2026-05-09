@@ -16,7 +16,19 @@ Vorhersage von Spritpreisen in € als Regressionsproblem.
 
 ⚠️🚧🚧⚠️ Welche Vorhersage? also: nächster Zeitpunkt (t + 1h ?), Tagesdurchschnitt?, Minimum im nächsten Zeitraum (und wenn ja: in welchem?)
 
+> Was meinst du hiermit? 
+> Ich fände dabei die variabilität Inhaltlich. Er hat ja auch gesagt wir sollen die Daten interaktiv gestalten. Sprich wir können genau die faktoren ja mal grafisch aufbereiten. Können wir ja hier im DOkument mal gemeinsam aufzählen
+
+
 ⚠️🚧🚧⚠️ Noch zu klären: "Vorhersage von Spritpreisen" vs. "Optimaler Tankzeitpunkt". Das ist nicht das gleiche! 
+
+> Ja das stimmt. Optimaler Tankzeitpunkt beinhaltet aber Vorhersage der nächsten Tankzeitpunkte. inklusive zukünftigem KonfidenzIntervall. 
+> Falls du Docker kannst, kannst du gerne mal in dem kopierten repo mal 
+> '''docker compose up''' ausführen. Manchmal ist das auch '''docker-compose up'''.
+> In den bisherig erstellten Inhalten unten, sind bereits genau solche Visualisierungen enthalten. 
+> Hier bei finde ich gerade die Heatmap sehr angenehm für Erwartungsverhalten. Dabei kann der/die NutzerIn nicht nur unsere vorhersage betrachten sondern auch eigene schlüsse aus bisherigem Preisverhalten selbst ziehen. Siehe [Heatmap](#bisher-erstellte-inhalte)
+
+
 ## Gewählter ML-Ansatz
 Als Hauptansatz wurde ein **MLP-Regressor** gewählt.
 - Laut Dozent erlaubt und mit dem Modul Predictive Analytics vereinbar
@@ -43,12 +55,25 @@ Das bedeutet:
 - keine rohe Zeitreihe direkt in das Modell geben
 - stattdessen gezieltes **Feature Engineering**
 
-Politische Entscheidungen werden **nicht direkt modelliert**, da sie schwer operationalisierbar, kaum vorhersagbar und typischerweise bereits indirekt im Ölpreis eingepreist sind.
+> --> In meinem Verständnis bedeutet dies, dass wir die Zeiten konkret als Datums und Zeit wert in einer extra Dimension angeben. aka Zeitstempel [2026-05-09 16:19:00.662 UTC]
+
+
+
+Politische Entscheidungen könnten in einem weiter gedachten extra Projektansatz durch erweiterte Pipelines zukünftig in diese Vorhersagen mit einfließen, da sie schwer operationalisierbar, bedingt vorhersagbar und typischerweise bereits indirekt im Ölpreis eingepreist sind, wird in diesem Projekt der Fokus auf den Einfluss des Rohölpreises zurückgegriffen.
+
+
 
 ⚠️🚧🚧⚠️ Leakage-Risiko beachten: Gleitender Mittelwert nur über vergangene Daten
+
+> Hilft es, hierfür eine weitere Dimension mit einzubringen in welcher wir die aktuelle "Steigung" des bisherigen Preises mit einführen. Ergo. funktion durch regression aufbauen und die Werte der ersten Ableitung dieser "kontinuierlich erweiterbaren" Funktion als extra Dimension für jeden Datensatz mit einführen (extra Feature) 
+
 ⚠️🚧🚧⚠️ Feature Scaling (`StandardScaler`) AUF JEDEN FALL NUTZEN!
+
+> Okay was heißt das genau? \^_\^
+
 ⚠️🚧🚧⚠️ Tuning (ist gefordert). Parameter: `hidden_layer_sizes`, `alpha`, `learning_rate_init`
 
+> Möglich über Variablendefinition?
 
 ## Modellierungsansatz
 Über `scikit-learn` unter der Verwendung von `MLPRegressor`.
@@ -72,3 +97,12 @@ Wichtig ist die Interpretation im **Business-Kontext**, also z. B.:
 
 ## Vergleich mit zweitem Modell
 ⚠️🚧🚧⚠️ Notwendig, weil steht im Leitfaden!
+
+> Kann man das mit Modellierung mit Ölpreis bezug vergleichen oder wäre das nicht genug, da schon inkludiert? Dann hätten wir ja irgendwie schon 3 Modelle (Rein Spritpreis, Rein öl, Gemeinsames Modell)
+
+## Bisher erstellte Inhalte:
+
+![](./screenshot-20260509-180506.png)
+![](./screenshot-20260509-180642.png)
+![](./screenshot-20260509-180703.png)
+
