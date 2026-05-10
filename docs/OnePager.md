@@ -17,14 +17,14 @@ Vorhersage von Spritpreisen in € als Regressionsproblem.
 ⚠️🚧🚧⚠️ Welche Vorhersage? also: nächster Zeitpunkt (t + 1h ?), Tagesdurchschnitt?, Minimum im nächsten Zeitraum (und wenn ja: in welchem?)
 
 > Was meinst du hiermit? 
-> Ich fände dabei die variabilität Inhaltlich. Er hat ja auch gesagt wir sollen die Daten interaktiv gestalten. Sprich wir können genau die faktoren ja mal grafisch aufbereiten. Können wir ja hier im DOkument mal gemeinsam aufzählen
+> Ich fände dabei die variabilität Inhaltlich. Er hat ja auch gesagt wir sollen die Daten interaktiv gestalten. Sprich wir können genau die faktoren ja mal grafisch aufbereiten. Können wir ja hier im Dokument mal gemeinsam aufzählen
 
 
 ⚠️🚧🚧⚠️ Noch zu klären: "Vorhersage von Spritpreisen" vs. "Optimaler Tankzeitpunkt". Das ist nicht das gleiche! 
 
 > Ja das stimmt. Optimaler Tankzeitpunkt beinhaltet aber Vorhersage der nächsten Tankzeitpunkte. inklusive zukünftigem KonfidenzIntervall. 
 > Falls du Docker kannst, kannst du gerne mal in dem kopierten repo mal 
-> '''docker compose up''' ausführen. Manchmal ist das auch '''docker-compose up'''.
+> ```docker compose up``` ausführen. Manchmal ist das auch ```docker-commpose up```
 > In den bisherig erstellten Inhalten unten, sind bereits genau solche Visualisierungen enthalten. 
 > Hier bei finde ich gerade die Heatmap sehr angenehm für Erwartungsverhalten. Dabei kann der/die NutzerIn nicht nur unsere vorhersage betrachten sondern auch eigene schlüsse aus bisherigem Preisverhalten selbst ziehen. Siehe [Heatmap](#bisher-erstellte-inhalte)
 
