@@ -12,6 +12,9 @@ dist/
 build/
 *.egg
 
+# Conda environments
+.conda/
+
 # Jupyter Notebooks
 .ipynb_checkpoints/
 *.ipynb_checkpoints
