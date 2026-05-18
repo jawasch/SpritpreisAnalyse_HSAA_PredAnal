@@ -119,3 +119,7 @@ Wichtig ist die Interpretation im **Business-Kontext**, also z. B.:
 ![](./screenshot-20260509-180642.png)
 ![](./screenshot-20260509-180703.png)
 
+## Kommentar 
+Wie kann man verschiedene Modelle mit einbeziehen?
+
+Mit aufgreifen von Confusion Matrix in die vergangenheit.
