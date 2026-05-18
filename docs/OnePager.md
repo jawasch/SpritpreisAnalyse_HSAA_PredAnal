@@ -59,6 +59,7 @@ Das bedeutet:
 - stattdessen gezieltes **Feature Engineering**
 
 > --> In meinem Verständnis bedeutet dies, dass wir die Zeiten konkret als Datums und Zeit wert in einer extra Dimension angeben. aka Zeitstempel [2026-05-09 16:19:00.662 UTC]
+>> GUte Frage! irgendiwe so muss das gehen
 
 
 
@@ -69,14 +70,19 @@ Politische Entscheidungen könnten in einem weiter gedachten extra Projektansatz
 ⚠️🚧🚧⚠️ Leakage-Risiko beachten: Gleitender Mittelwert nur über vergangene Daten
 
 > Hilft es, hierfür eine weitere Dimension mit einzubringen in welcher wir die aktuelle "Steigung" des bisherigen Preises mit einführen. Ergo. funktion durch regression aufbauen und die Werte der ersten Ableitung dieser "kontinuierlich erweiterbaren" Funktion als extra Dimension für jeden Datensatz mit einführen (extra Feature) 
+>> 
 
 ⚠️🚧🚧⚠️ Feature Scaling (`StandardScaler`) AUF JEDEN FALL NUTZEN!
 
 > Okay was heißt das genau? \^_\^
+>> Skalierung meint hier Werte von 0 bis 1 für (vermutlich) alle Features. also 
+
+
 
 ⚠️🚧🚧⚠️ Tuning (ist gefordert). Parameter: `hidden_layer_sizes`, `alpha`, `learning_rate_init`
 
 > Möglich über Variablendefinition?
+>> was meinst du da?
 
 ## Modellierungsansatz
 Über `scikit-learn` unter der Verwendung von `MLPRegressor`.
@@ -105,6 +111,7 @@ Wichtig ist die Interpretation im **Business-Kontext**, also z. B.:
 ⚠️🚧🚧⚠️ Notwendig, weil steht im Leitfaden!
 
 > Kann man das mit Modellierung mit Ölpreis bezug vergleichen oder wäre das nicht genug, da schon inkludiert? Dann hätten wir ja irgendwie schon 3 Modelle (Rein Spritpreis, Rein öl, Gemeinsames Modell)
+>> ein weiteres Modell meint die Nutzung eines zweiten MLP-Regressors oder ein anderes Regressionsmodell (Logistische Regression?, ...)
 
 ## Bisher erstellte Inhalte:
 
