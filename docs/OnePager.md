@@ -19,6 +19,9 @@ Vorhersage von Spritpreisen in € als Regressionsproblem.
 > Was meinst du hiermit? 
 > Ich fände dabei die variabilität Inhaltlich. Er hat ja auch gesagt wir sollen die Daten interaktiv gestalten. Sprich wir können genau die faktoren ja mal grafisch aufbereiten. Können wir ja hier im Dokument mal gemeinsam aufzählen
 
+>> gute Idee aber das verkompliziert die Sache vermutlich. Das Problem: wir müssen den MLP-Regressor dann so bauen, dass er drei Output-Neuronen hat, also +1h , +3h + 6h oder sowas ([s.u.](#modellierungsansatz)).
+Und: Wenn ich der Spediteur bin: Warum sollte ich den Horizont wählen wollen? Ich will doch nur wissen: Wann in den nächsten 24 Stunden ist es am billigsten? Wäre es nicht sinnvoller das Modell so zu bauen, dass es immer die nächsten 24 Stunden als Kurve vorhersagt, anstatt den Nutzer raten zu lassen, welcher Horizont gerade wichtig ist?
+
 
 ⚠️🚧🚧⚠️ Noch zu klären: "Vorhersage von Spritpreisen" vs. "Optimaler Tankzeitpunkt". Das ist nicht das gleiche! 
 
@@ -82,6 +85,9 @@ Politische Entscheidungen könnten in einem weiter gedachten extra Projektansatz
 - Hidden Layer 1: **64 Neuronen**
 - Hidden Layer 2: **32 Neuronen**
 - Output Layer: **1 Neuron**, linear (Preis in €)
+
+> hier wäre dann wichtig:
+> Um dem Nutzer Flexibilität im Prognosehorizont zu bieten, wird ein Multi-Output-Ansatz verfolgt (Vorhersage von t+1,t+3,t+6).
 
 Ggf. `PyTorch` mit eigenem Feed-Forward-Netz mit `torch.nn` erstlellen (für Lernzwecke).
 
