@@ -209,10 +209,15 @@ def aggregate_hourly(
     # Reindex to a complete hourly range (no gaps)
     full_idx = pd.date_range(hourly.index.min(), hourly.index.max(), freq="h")
     hourly = hourly.reindex(full_idx)
-    hourly = hourly.ffill(limit=3)
+    # Forward-fill without limit: carry the last known cluster price until the
+    # next price-change event. This correctly answers "what would you pay at h?"
+    hourly = hourly.ffill()
 
     hourly.index.name = "timestamp"
     hourly.columns = [f"{fuel_type}_{c}" for c in hourly.columns]
+
+    nan_pct = hourly.isna().mean().mul(100).round(1)
+    print(f"  NaN % per cluster after ffill: {nan_pct.to_dict()}")
     return hourly
 
 
