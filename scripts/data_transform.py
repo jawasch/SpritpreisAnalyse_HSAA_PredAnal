@@ -82,6 +82,8 @@ def load_stations(data_path: Path, clusters: dict[str, list[int]]) -> pd.DataFra
     the B29 corridor PLZ codes.
     """
     stations_path = data_path / "stations" / "stations.csv"
+    # Vorsicht: hier wird nur stations.csv eingelesen obwohl jede prices.csv eine korrespondierende stations.csv hat!
+    
     stations = pd.read_csv(
         stations_path,
         usecols=["uuid", "post_code"],
