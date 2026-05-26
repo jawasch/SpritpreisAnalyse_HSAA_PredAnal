@@ -9,7 +9,7 @@ Usage
 -----
     from scripts.data_transform import B29DataLoader
 
-    loader = B29DataLoader(stride=0, forecast_horizon=24, fuel_type="diesel")
+    loader = B29DataLoader(stride=0, forecast_horizon=24, fuel_type="diesel", debug=True)
     X, y  = loader.load()
     X_train, X_val, X_test, y_train, y_val, y_test = loader.train_val_test_split(X, y)
 
@@ -26,6 +26,9 @@ import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
+# Debug flag to control verbose output (now a parameter)
+DEBUG = False
+
 # ── Constants ──────────────────────────────────────────────────────────────
 
 # Four geographic clusters along the B29 (Aalen → Stuttgart)
@@ -34,7 +37,7 @@ B29_CLUSTERS_DEFAULT: dict[str, list[int]] = {
     "schwaebisch_gmuend": [73525, 73526, 73527, 73528, 73529],           # Region B
     "schorndorf":         [73614, 73655, 73660, 71334, 71336],           # Region C
     "stuttgart":          [70173, 70174, 70176, 70180, 70182,            # Region D
-                           70184, 70372, 70374, 70376, 70439],
+                            70184, 70372, 70374, 70376, 70439],
 }
 
 # Lag offsets in hours (168 h = same time last week)
@@ -48,7 +51,6 @@ TREND_WINDOW = 24
 
 # Rows to discard after lag creation (= max lag, so first row has no NaN from lags)
 WARMUP_ROWS = 168
-
 
 # ── Configuration ───────────────────────────────────────────────────────────
 
@@ -73,7 +75,6 @@ def load_config() -> dict:
         "processed_dir": processed_dir,
     }
 
-
 # ── Station loading ─────────────────────────────────────────────────────────
 
 def load_stations(data_path: Path, clusters: dict[str, list[int]]) -> pd.DataFrame:
@@ -84,6 +85,9 @@ def load_stations(data_path: Path, clusters: dict[str, list[int]]) -> pd.DataFra
     stations_path = data_path / "stations" / "stations.csv"
     # Vorsicht: hier wird nur stations.csv eingelesen obwohl jede prices.csv eine korrespondierende stations.csv hat!
     
+    if DEBUG:
+        print(f"[DEBUG] Loading stations from {stations_path}")
+
     stations = pd.read_csv(
         stations_path,
         usecols=["uuid", "post_code"],
@@ -99,8 +103,11 @@ def load_stations(data_path: Path, clusters: dict[str, list[int]]) -> pd.DataFra
     stations["cluster"] = stations["plz"].map(plz_to_cluster)
 
     b29 = stations.dropna(subset=["cluster"])[["uuid", "cluster"]].reset_index(drop=True)
-    return b29
 
+    if DEBUG:
+        print(f"[DEBUG] Found {len(b29)} stations in B29 clusters: {b29['cluster'].value_counts()}")
+
+    return b29
 
 # ── Price loading ───────────────────────────────────────────────────────────
 
@@ -121,6 +128,10 @@ def load_raw_prices(
     prices_root = data_path / "prices"
     all_files = sorted(prices_root.rglob("*-prices.csv"))
 
+    if DEBUG:
+        print(f"[DEBUG] Searching for prices in {prices_root}")
+        print(f"[DEBUG] Found {len(all_files)} price files")
+
     ts_start = pd.Timestamp(start_date) if start_date else None
     ts_end = pd.Timestamp(end_date) if end_date else None
 
@@ -132,13 +143,19 @@ def load_raw_prices(
         date_str = f.stem.replace("-prices", "")
         try:
             file_date = pd.Timestamp(date_str)
-        except Exception:
+        except Exception as e:
             skipped += 1
+            if DEBUG:
+                print(f"[DEBUG] Skipped {f} (invalid date): {e}")
             continue
 
         if ts_start and file_date < ts_start:
+            if DEBUG:
+                print(f"[DEBUG] Skipping {f} (before start date)")
             continue
         if ts_end and file_date > ts_end:
+            if DEBUG:
+                print(f"[DEBUG] Skipping {f} (after end date)")
             continue
 
         try:
@@ -147,16 +164,18 @@ def load_raw_prices(
                 usecols=["date", "station_uuid", fuel_type],
                 dtype={"station_uuid": str, fuel_type: "float32"},
             )
-        except Exception:
+        except Exception as e:
             skipped += 1
+            if DEBUG:
+                print(f"[DEBUG] Skipped {f} (read error): {e}")
             continue
 
         df = df[df["station_uuid"].isin(station_uuids)]
         if not df.empty:
             chunks.append(df)
 
-    if skipped:
-        print(f"  (skipped {skipped} files with unexpected format)")
+    if skipped and DEBUG:
+        print(f"[DEBUG] Skipped {skipped} files due to errors")
 
     if not chunks:
         raise ValueError(
@@ -169,8 +188,12 @@ def load_raw_prices(
     raw = raw.dropna(subset=[fuel_type])
     raw = raw[raw[fuel_type] > 0.5]  # remove zeroed/invalid entries
     raw = raw.sort_values("date").reset_index(drop=True)
-    return raw
 
+    if DEBUG:
+        print(f"[DEBUG] Loaded {len(raw):,} price events for {fuel_type}")
+        print(f"[DEBUG] Date range: {raw['date'].min()} to {raw['date'].max()}")
+
+    return raw
 
 # ── Hourly aggregation ──────────────────────────────────────────────────────
 
@@ -219,9 +242,10 @@ def aggregate_hourly(
     hourly.columns = [f"{fuel_type}_{c}" for c in hourly.columns]
 
     nan_pct = hourly.isna().mean().mul(100).round(1)
-    print(f"  NaN % per cluster after ffill: {nan_pct.to_dict()}")
-    return hourly
+    if DEBUG:
+        print(f"[DEBUG] NaN % per cluster after ffill: {nan_pct.to_dict()}")
 
+    return hourly
 
 # ── Feature engineering ─────────────────────────────────────────────────────
 
@@ -241,7 +265,6 @@ def _rolling_linear_slope(series: pd.Series, window: int) -> pd.Series:
 
     return series.rolling(window, min_periods=window).apply(_slope, raw=True)
 
-
 def _is_holiday(timestamps: pd.DatetimeIndex) -> pd.Series:
     """Return bool Series: True when the date is a German public holiday (BW)."""
     try:
@@ -256,7 +279,6 @@ def _is_holiday(timestamps: pd.DatetimeIndex) -> pd.Series:
         )
     except ImportError:
         return pd.Series(False, index=timestamps, dtype=bool)
-
 
 def build_features(
     df_hourly: pd.DataFrame,
@@ -328,9 +350,9 @@ def build_features(
 
     return X, y
 
-
 # ── DataLoader ──────────────────────────────────────────────────────────────
 
+# Modify the B29DataLoader class to ensure configuration is always loaded
 class B29DataLoader:
     """
     One-stop loader for the B29 corridor MLP pipeline.
@@ -340,7 +362,7 @@ class B29DataLoader:
 
     Example
     -------
-        loader = B29DataLoader(stride=0, fuel_type="diesel")
+        loader = B29DataLoader(stride=0, fuel_type="diesel", debug=True)
         X, y = loader.load()
         X_train, X_val, X_test, y_train, y_val, y_test = loader.train_val_test_split(X, y)
     """
@@ -355,12 +377,19 @@ class B29DataLoader:
         forecast_horizon: int = 24,
         fuel_type: str = "diesel",
         cache: bool = True,
+        debug: bool = False,  # New parameter
     ):
         self.stride = stride
         self.forecast_horizon = forecast_horizon
         self.fuel_type = fuel_type
         self.cache = cache
-        self._cfg = load_config()
+        self.debug = debug  # Store as instance variable
+
+        global DEBUG
+        DEBUG = debug  # Update the module-level constant
+
+        # Initialize configuration immediately
+        self._cfg = load_config()  # Ensure config is loaded
 
     @property
     def cache_path(self) -> Path:
@@ -378,31 +407,43 @@ class B29DataLoader:
         If a cached parquet exists and `refresh` is False, the raw CSV scan
         is skipped entirely.
         """
+        global DEBUG
+        if DEBUG:
+            print("[B29DataLoader] DEBUG mode enabled")
+
+        # Configuration is already loaded in __init__
+
         if self.cache and self.cache_path.exists() and not refresh:
             print(f"[B29DataLoader] Loading from cache: {self.cache_path}")
             df_hourly = pd.read_parquet(self.cache_path)
         else:
-            cfg = self._cfg
-            print(f"[B29DataLoader] Scanning stations …")
-            df_stations = load_stations(cfg["data_path"], cfg["clusters"])
+            if DEBUG:
+                print(f"[B29DataLoader] Scanning stations …")
+
+            df_stations = load_stations(self._cfg["data_path"], self._cfg["clusters"])
 
             counts = df_stations.groupby("cluster")["uuid"].count()
-            print("  Station counts per B29 cluster:")
-            for cluster, n in counts.items():
-                print(f"    {cluster:22s}: {n:3d} stations")
+            if DEBUG:
+                print("  Station counts per B29 cluster:")
+                for cluster, n in counts.items():
+                    print(f"    {cluster:22s}: {n:3d} stations")
 
             uuids = set(df_stations["uuid"])
             total = counts.sum()
-            print(f"\n[B29DataLoader] Loading raw prices for {total} stations …")
+            if DEBUG:
+                print(f"\n[B29DataLoader] Loading raw prices for {total} stations …")
             df_raw = load_raw_prices(
-                cfg["data_path"], uuids, self.fuel_type, start_date, end_date
+                self._cfg["data_path"], uuids, self.fuel_type, start_date, end_date
             )
-            print(f"  {len(df_raw):,} price events loaded")
+            if DEBUG:
+                print(f"  {len(df_raw):,} price events loaded")
 
-            print("[B29DataLoader] Aggregating to hourly cluster means …")
+            if DEBUG:
+                print("[B29DataLoader] Aggregating to hourly cluster means …")
             df_hourly = aggregate_hourly(df_raw, df_stations, self.fuel_type)
-            print(f"  Hourly shape: {df_hourly.shape}  "
-                  f"({df_hourly.index.min()} → {df_hourly.index.max()})")
+            if DEBUG:
+                print(f"  Hourly shape: {df_hourly.shape}  "
+                        f"({df_hourly.index.min()} → {df_hourly.index.max()})")
 
             if self.cache:
                 df_hourly.to_parquet(self.cache_path)
@@ -411,8 +452,11 @@ class B29DataLoader:
         X, y = build_features(
             df_hourly, self.stride, self.forecast_horizon, self.fuel_type
         )
-        print(f"[B29DataLoader] Feature matrix ready: X={X.shape}, y={y.shape}")
+        if DEBUG:
+            print(f"[B29DataLoader] Feature matrix ready: X={X.shape}, y={y.shape}")
         return X, y
+
+    # Rest of the class methods remain unchanged...
 
     def train_val_test_split(
         self,
@@ -440,7 +484,6 @@ class B29DataLoader:
 
         return X_train, X_val, X_test, y_train, y_val, y_test
 
-
 # ── CLI ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -461,12 +504,22 @@ if __name__ == "__main__":
                         help="Only load data from this date onwards")
     parser.add_argument("--end",   default=None, metavar="YYYY-MM-DD",
                         help="Only load data up to this date")
+    parser.add_argument(
+        "--debug", action="store_true",
+        help="Enable verbose debug output"
+    )
     args = parser.parse_args()
 
-    loader = B29DataLoader(fuel_type=args.fuel_type, stride=0, cache=True)
+    loader = B29DataLoader(
+        fuel_type=args.fuel_type,
+        stride=0,
+        cache=True,
+        debug=args.debug
+    )
     X, y = loader.load(start_date=args.start, end_date=args.end, refresh=args.refresh)
     loader.train_val_test_split(X, y)
 
-    print("\nFeature columns:")
-    for col in X.columns:
-        print(f"  {col}")
+    if args.debug:
+        print("\nFeature columns:")
+        for col in X.columns:
+            print(f"  {col}")
