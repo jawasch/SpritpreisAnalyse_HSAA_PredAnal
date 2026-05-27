@@ -61,7 +61,7 @@ data/processed/*.parquet
 data/models/*.pkl
 data/models/*.h5
 data/models/*.pb
-
+docs/*.png
 # Logs
 *.log
 logs/
