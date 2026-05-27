@@ -33,10 +33,10 @@ DEBUG = False
 
 # Four geographic clusters along the B29 (Aalen → Stuttgart)
 B29_CLUSTERS_DEFAULT: dict[str, list[int]] = {
-    "aalen":              [73430, 73431, 73432, 73433, 73434],           # Region A
-    "schwaebisch_gmuend": [73525, 73526, 73527, 73528, 73529],           # Region B
-    "schorndorf":         [73614, 73655, 73660, 71334, 71336],           # Region C
-    "stuttgart":          [70173, 70174, 70176, 70178, 70180, 70182, 70184, 70186, 70188, 70190,
+    "Aalen":              [73430, 73431, 73432, 73433, 73434],           # Region A
+    "Schwäbisch Gmünd": [73525, 73526, 73527, 73528, 73529],           # Region B
+    "Schorndorf":         [73614, 73655, 73660, 71334, 71336],           # Region C
+    "Stuttgart":          [70173, 70174, 70176, 70178, 70180, 70182, 70184, 70186, 70188, 70190,
                             70191, 70192, 70193, 70195, 70197, 70199, 70327, 70329, 70372, 70374,
                             70376, 70378, 70435, 70437, 70439, 70469, 70476, 70499, 70563, 70565,
                             70567, 70569, 70597, 70599, 70619, 70629],   # Region D
@@ -112,6 +112,15 @@ def load_stations(data_path: Path, clusters: dict[str, list[int]]) -> pd.DataFra
 
 # ── Price loading ───────────────────────────────────────────────────────────
 
+def _normalize_end_timestamp(end_date: str | None) -> pd.Timestamp | None:
+    if end_date is None:
+        return None
+    ts = pd.Timestamp(end_date)
+    if isinstance(end_date, str) and len(end_date) <= 10 and ts.time() == pd.Timestamp("00:00:00").time():
+        ts = ts + pd.Timedelta(days=1) - pd.Timedelta(hours=1)
+    return ts
+
+
 def load_raw_prices(
     data_path: Path,
     station_uuids: set,
@@ -134,7 +143,7 @@ def load_raw_prices(
         print(f"[DEBUG] Found {len(all_files)} price files")
 
     ts_start = pd.Timestamp(start_date) if start_date else None
-    ts_end = pd.Timestamp(end_date) if end_date else None
+    ts_end = _normalize_end_timestamp(end_date)
 
     chunks: list[pd.DataFrame] = []
     skipped = 0
@@ -257,21 +266,21 @@ def _rolling_linear_slope(series: pd.Series, window: int) -> pd.Series:
     """
     x = np.arange(window, dtype=np.float64)
     x -= x.mean()   # center for numerical stability
-    x_ss = (x ** 2).sum()
+    x_ss = (x ** 2).sum() # Summe der Quadrate
 
     def _slope(y: np.ndarray) -> float:
         if np.isnan(y).any():
             return np.nan
-        return float(np.dot(x, y - y.mean()) / x_ss)
+        return float(np.dot(x, y - y.mean()) / x_ss) # Berechnung der Steigung (slope) mit numpy least-squares
 
-    return series.rolling(window, min_periods=window).apply(_slope, raw=True)
+    return series.rolling(window, min_periods=window).apply(_slope, raw=True) # Berechnung der linearen Steigung über das rollende Fenster
 
 def _is_holiday(timestamps: pd.DatetimeIndex) -> pd.Series:
     """Return bool Series: True when the date is a German public holiday (BW)."""
     try:
         import holidays  # pip install holidays
-        bw_hols = holidays.Germany(
-            state="BW", years=sorted(timestamps.year.unique().tolist())
+        bw_hols = holidays.country_holidays(
+            "DE", subdiv="BW", years=sorted(timestamps.year.unique().tolist())
         )
         return pd.Series(
             [ts.date() in bw_hols for ts in timestamps],
@@ -288,7 +297,7 @@ def build_features(
     fuel_type: str = "diesel",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Build feature matrix X and target DataFrame y.
+    Build feature matrix X and multi-horizon target DataFrame y.
 
     Parameters
     ----------
@@ -296,17 +305,17 @@ def build_features(
         Wide hourly DataFrame with columns "{fuel_type}_{cluster}".
     stride : int
         Shifts the observation window `stride` hours into the past.
-        stride=0  → predict price at t using features up to t (nowcast / 1-step)
-        stride=24 → predict price at t using features known at t-24 (24h-ahead forecast)
+        stride=0  → features known at t
+        stride=24 → features known at t-24
     forecast_horizon : int
-        Reserved for future multi-step output (currently unused in X/y construction).
+        Number of future hours to predict directly (t+1 … t+H).
     fuel_type : str
         Fuel type prefix to select from df_hourly.
 
     Returns
     -------
-    X : pd.DataFrame  — feature columns (no current prices)
-    y : pd.DataFrame  — target columns (current cluster prices)
+    X : pd.DataFrame  — feature columns (known at prediction time)
+    y : pd.DataFrame  — target columns (multi-step future prices)
     """
     price_cols = [c for c in df_hourly.columns if c.startswith(f"{fuel_type}_")]
     df = df_hourly.copy()
@@ -318,35 +327,36 @@ def build_features(
         for lag in LAG_HOURS:
             df[f"{col}_lag_{lag}h"] = s.shift(lag + stride)
 
-        # Price difference vs. 1h ago (momentum proxy)
+        df[f"{col}_price_t"] = s.shift(stride)
         df[f"{col}_diff"] = s.shift(stride) - s.shift(1 + stride)
 
-        # Rolling statistics over the window ending at t-stride
         for w in ROLLING_WINDOWS:
             df[f"{col}_roll_mean_{w}h"] = s.shift(stride).rolling(w, min_periods=w).mean()
-            df[f"{col}_roll_std_{w}h"]  = s.shift(stride).rolling(w, min_periods=w).std()
+            df[f"{col}_roll_std_{w}h"] = s.shift(stride).rolling(w, min_periods=w).std()
 
-        # Linear trend slope (€/L per hour) over the last TREND_WINDOW hours
         df[f"{col}_trend"] = _rolling_linear_slope(s.shift(stride), TREND_WINDOW)
-
-        # Momentum: price acceleration (lag_1h minus lag_24h)
         df[f"{col}_momentum"] = s.shift(1 + stride) - s.shift(24 + stride)
 
-    # Global time features
     idx = df.index
-    df["hour"]       = idx.hour
+    df["hour"] = idx.hour
     df["day_of_week"] = idx.dayofweek
     df["is_weekend"] = (idx.dayofweek >= 5).astype(np.int8)
     df["is_holiday"] = _is_holiday(idx).astype(np.int8)
 
-    # Drop warmup rows (first WARMUP_ROWS rows have NaN from 168h lag)
+    target_cols: list[str] = []
+    for step in range(1, forecast_horizon + 1):
+        for col in price_cols:
+            target_col = f"{col}_t+{step}h"
+            df[target_col] = df[col].shift(-step)
+            target_cols.append(target_col)
+
     df = df.iloc[WARMUP_ROWS:].copy()
+    df = df.dropna(subset=target_cols)
 
-    # Target: current cluster prices
-    y = df[price_cols].copy()
+    y = df[target_cols].copy()
 
-    # Features: everything except the raw current prices
-    feature_cols = [c for c in df.columns if c not in price_cols]
+    excluded_cols = set(price_cols + target_cols)
+    feature_cols = [c for c in df.columns if c not in excluded_cols]
     X = df[feature_cols].copy()
 
     return X, y
@@ -369,22 +379,28 @@ class B29DataLoader:
     """
 
     # Temporal split boundaries (inclusive end of train / val)
-    _TRAIN_END = "2021-12-31 23:00"
-    _VAL_END   = "2023-12-31 23:00"
+    # Dynamische Berechnung der Grenzen könnte hier sinnvoll sein, z.B. basierend auf den Daten in df_hourly oder als Parameterübergabe, um Flexibilität zu gewährleisten.
+    
+    _TRAIN_END = "2021-12-31 23:00" # TODO: diese Grenzen sollten eigentlich als Parameter übergeben werden, damit sie flexibel sind und nicht hart im Code stehen!
+    _VAL_END   = "2023-12-31 23:00" # TODO: siehe oben
 
     def __init__(
         self,
         stride: int = 0,
-        forecast_horizon: int = 24,
+        forecast_horizon: int = 72,
         fuel_type: str = "diesel",
         cache: bool = True,
-        debug: bool = False,  # New parameter
+        debug: bool = False,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ):
         self.stride = stride
         self.forecast_horizon = forecast_horizon
         self.fuel_type = fuel_type
         self.cache = cache
-        self.debug = debug  # Store as instance variable
+        self.debug = debug
+        self.start_date = start_date
+        self.end_date = end_date
 
         global DEBUG
         DEBUG = debug  # Update the module-level constant
@@ -392,9 +408,16 @@ class B29DataLoader:
         # Initialize configuration immediately
         self._cfg = load_config()  # Ensure config is loaded
 
+    def _cache_path_for_dates(self, start_date: str | None, end_date: str | None) -> Path:
+        start_key = (start_date or "all").replace(":", "-").replace(" ", "T")
+        end_key = (end_date or "all").replace(":", "-").replace(" ", "T")
+        return self._cfg["processed_dir"] / (
+            f"b29_hourly_{self.fuel_type}_{start_key}_{end_key}.parquet"
+        )
+
     @property
     def cache_path(self) -> Path:
-        return self._cfg["processed_dir"] / f"b29_hourly_{self.fuel_type}.parquet"
+        return self._cache_path_for_dates(self.start_date, self.end_date)
 
     def load(
         self,
@@ -414,9 +437,13 @@ class B29DataLoader:
 
         # Configuration is already loaded in __init__
 
-        if self.cache and self.cache_path.exists() and not refresh:
-            print(f"[B29DataLoader] Loading from cache: {self.cache_path}")
-            df_hourly = pd.read_parquet(self.cache_path)
+        start_date_eff = start_date or self.start_date
+        end_date_eff = end_date or self.end_date
+        cache_path_eff = self._cache_path_for_dates(start_date_eff, end_date_eff)
+
+        if self.cache and cache_path_eff.exists() and not refresh:
+            print(f"[B29DataLoader] Loading from cache: {cache_path_eff}")
+            df_hourly = pd.read_parquet(cache_path_eff)
         else:
             if DEBUG:
                 print(f"[B29DataLoader] Scanning stations …")
@@ -434,7 +461,7 @@ class B29DataLoader:
             if DEBUG:
                 print(f"\n[B29DataLoader] Loading raw prices for {total} stations …")
             df_raw = load_raw_prices(
-                self._cfg["data_path"], uuids, self.fuel_type, start_date, end_date
+                self._cfg["data_path"], uuids, self.fuel_type, start_date_eff, end_date_eff
             )
             if DEBUG:
                 print(f"  {len(df_raw):,} price events loaded")
@@ -447,8 +474,8 @@ class B29DataLoader:
                         f"({df_hourly.index.min()} → {df_hourly.index.max()})")
 
             if self.cache:
-                df_hourly.to_parquet(self.cache_path)
-                print(f"  Cached to: {self.cache_path}")
+                df_hourly.to_parquet(cache_path_eff)
+                print(f"  Cached to: {cache_path_eff}")
 
         X, y = build_features(
             df_hourly, self.stride, self.forecast_horizon, self.fuel_type
@@ -471,17 +498,26 @@ class B29DataLoader:
           val   : 2022-01 → 2023-12
           test  : 2024-01 → present
         """
-        X_train = X.loc[: self._TRAIN_END]
-        X_val   = X.loc[self._TRAIN_END : self._VAL_END].iloc[1:]
-        X_test  = X.loc[self._VAL_END :].iloc[1:]
+        train_end = min(pd.Timestamp(self._TRAIN_END), X.index.max())
+        val_end = min(pd.Timestamp(self._VAL_END), X.index.max())
 
-        y_train = y.loc[: self._TRAIN_END]
-        y_val   = y.loc[self._TRAIN_END : self._VAL_END].iloc[1:]
-        y_test  = y.loc[self._VAL_END :].iloc[1:]
+        X_train = X.loc[:train_end]
+        y_train = y.loc[:train_end]
 
-        print(f"  Train : {X_train.index[0]}  →  {X_train.index[-1]}  ({len(X_train):,} rows)")
-        print(f"  Val   : {X_val.index[0]}  →  {X_val.index[-1]}  ({len(X_val):,} rows)")
-        print(f"  Test  : {X_test.index[0]}  →  {X_test.index[-1]}  ({len(X_test):,} rows)")
+        X_val = X.loc[train_end:val_end].iloc[1:] if train_end < val_end else X.iloc[0:0]
+        y_val = y.loc[train_end:val_end].iloc[1:] if train_end < val_end else y.iloc[0:0]
+
+        X_test = X.loc[val_end:].iloc[1:] if val_end < X.index.max() else X.iloc[0:0]
+        y_test = y.loc[val_end:].iloc[1:] if val_end < y.index.max() else y.iloc[0:0]
+
+        def _fmt_range(df: pd.DataFrame) -> str:
+            if df.empty:
+                return "empty"
+            return f"{df.index[0]}  →  {df.index[-1]}"
+
+        print(f"  Train : {_fmt_range(X_train)}  ({len(X_train):,} rows)")
+        print(f"  Val   : {_fmt_range(X_val)}  ({len(X_val):,} rows)")
+        print(f"  Test  : {_fmt_range(X_test)}  ({len(X_test):,} rows)")
 
         return X_train, X_val, X_test, y_train, y_val, y_test
 
