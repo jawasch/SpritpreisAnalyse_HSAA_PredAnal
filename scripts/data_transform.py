@@ -8,7 +8,7 @@ cluster means, and builds a lag/rolling/trend feature matrix.
 Usage
 -----
     from scripts.data_transform import B29DataLoader
-
+last
     loader = B29DataLoader(stride=0, forecast_horizon=24, fuel_type="diesel", debug=True)
     X, y  = loader.load()
     X_train, X_val, X_test, y_train, y_val, y_test = loader.train_val_test_split(X, y)
@@ -27,7 +27,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 # Debug flag to control verbose output (now a parameter)
-DEBUG = False
+DEBUG = os.getenv("DEBUG", False)
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ B29_CLUSTERS_DEFAULT: dict[str, list[int]] = {
                             70376, 70378, 70435, 70437, 70439, 70469, 70476, 70499, 70563, 70565,
                             70567, 70569, 70597, 70599, 70619, 70629],   # Region D
 }
-# Lag offsets in hours (168 h = same time last week)
+# Lag offsets in hours (168 h = same time  week)
 LAG_HOURS = [1, 2, 3, 6, 12, 24, 48, 72, 168]
 
 # Rolling window sizes for mean and std
@@ -84,7 +84,7 @@ def load_stations(data_path: Path, clusters: dict[str, list[int]]) -> pd.DataFra
     the B29 corridor PLZ codes.
     """
     stations_path = data_path / "stations" / "stations.csv"
-    # Vorsicht: hier wird nur stations.csv eingelesen obwohl jede prices.csv eine korrespondierende stations.csv hat!
+    # TODO: Vorsicht: hier wird nur stations.csv eingelesen obwohl jede prices.csv eine korrespondierende stations.csv hat!
     
     if DEBUG:
         print(f"[DEBUG] Loading stations from {stations_path}")
@@ -188,9 +188,15 @@ def load_raw_prices(
         print(f"[DEBUG] Skipped {skipped} files due to errors")
 
     if not chunks:
+        if not all_files:
+            raise ValueError(
+                f"No price CSV files found under {prices_root}. "
+                "Check TANKERKOENIG_DATA_PATH in .env."
+            )
         raise ValueError(
-            f"No price data found for B29 stations under {prices_root}. "
-            "Check TANKERKOENIG_DATA_PATH in .env."
+            f"No price events matched the given station UUIDs in {prices_root} "
+            f"({len(all_files)} files scanned, {len(station_uuids)} UUIDs searched). "
+            "Make sure station_uuids contains real UUIDs from stations.csv, not placeholders."
         )
 
     raw = pd.concat(chunks, ignore_index=True)
