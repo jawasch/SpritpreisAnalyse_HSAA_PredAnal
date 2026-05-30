@@ -46,11 +46,11 @@ from scripts.data_transform import (
 # Keys are human-readable route names; values are Tankerkönig UUIDs.
 # Replace the placeholder values with the UUIDs chosen from the map.
 SPEDITION_STATIONS: dict[str, str] = {
-    "Route_N":  "TO_BE_SET",  # ~100 km North  of Aalen
-    "Route_NE": "TO_BE_SET",  # ~100 km NE     of Aalen
-    "Route_E":  "TO_BE_SET",  # ~100 km East   of Aalen
-    "Route_SW": "TO_BE_SET",  # ~100 km SW     of Aalen
-    "Route_NW": "TO_BE_SET",  # ~100 km NW     of Aalen
+    "Route_E": "19275bf1-8186-47d8-b5eb-261431afaced",  # ESSO Esso Tankstelle — OLCHING (114 km)
+    "Route_N": "af8b14d6-0af5-4d86-a2d5-947dc569fd9a",  # AVIA AVIA Station — Ipsheim (81 km)
+    "Route_NE": "db307731-f6c4-4c45-9af4-1058e9b23397",  # AVIA AVIA Tankstelle — Nürnberg (90 km)
+    "Route_NW": "7bbb852b-e04e-48db-a1ee-8835cdbb9757",  # AVIA AVIA Tankstelle — Mühlhausen (109 km)
+    "Route_SW": "62c42eb1-3776-4c5c-aec5-22148a267465",  # RAN RAN Station — Biberach (86 km)
 }
 
 # Aalen city centre — used for distance/bearing calculations in the notebook
