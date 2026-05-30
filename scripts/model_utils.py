@@ -101,10 +101,10 @@ def evaluate_model(
     print(f"  RMSE : {rmse:.5f} €/L")
     print(f"  R²   : {r2:.5f}")
     print()
-    for name, eli5 in _ELI5_METRICS.items():
-        print(f"  [{name}]")
-        print(f"  {eli5}")
-        print()
+    # for name, eli5 in _ELI5_METRICS.items():
+    #     print(f"  [{name}]")
+    #     print(f"  {eli5}")
+    #     print()
 
     return {"mae": mae, "rmse": rmse, "r2": r2, "y_pred": y_pred}
 
