@@ -69,10 +69,27 @@ class TankerkoenigService:
     async def get_best_time(self, fuel_type: str) -> dict:
         return mock_data.get_best_time(fuel_type)
 
+    # ── Analytics: Geo-Timeseries ────────────────────────────────────────────
+
+    async def get_geo_timeseries(
+        self,
+        fuel_type: str = "diesel",
+        date: str | None = None,
+        interval: str = "hour",
+        region: str = "bw",
+    ) -> dict:
+        return mock_data.get_geo_timeseries(fuel_type, date, interval, region)
+
     # ── Predictions ─────────────────────────────────────────────────────────
 
     async def get_predictions(self, fuel_type: str, hours: int = 72) -> dict:
         return mock_data.get_predictions(fuel_type, hours)
+
+    async def get_spedition_predictions(self) -> dict:
+        return mock_data.get_spedition_predictions()
+
+    async def get_b29_predictions(self) -> dict:
+        return mock_data.get_b29_predictions()
 
 
 # Module-level singleton — imported by routers

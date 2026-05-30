@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
 
-from .api import stations, prices, analytics, predictions
+from .api import stations, prices, analytics, predictions, notebooks
 
 # Load environment variables
 load_dotenv()
@@ -60,6 +60,7 @@ app.include_router(stations.router, prefix="/api/v1/stations", tags=["Stations"]
 app.include_router(prices.router, prefix="/api/v1/prices", tags=["Prices"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
 app.include_router(predictions.router, prefix="/api/v1/predictions", tags=["Predictions"])
+app.include_router(notebooks.router, prefix="/api/v1/notebooks", tags=["Notebooks"])
 
 
 if __name__ == "__main__":

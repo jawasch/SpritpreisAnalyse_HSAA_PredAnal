@@ -7,6 +7,7 @@ and selecting the best-covered station per directional sector.
 
 from math import radians, sin, cos, sqrt, atan2, degrees
 
+import numpy as np
 import pandas as pd
 
 
@@ -53,6 +54,51 @@ def assign_sector(bearing_deg: float) -> str:
     if bearing_deg < 247.5:
         return "SW"
     return "NW"
+
+
+def compute_competition_density(
+    df_stations: pd.DataFrame,
+    radius_km: float = 2.0,
+    lat_col: str = "latitude",
+    lon_col: str = "longitude",
+) -> pd.DataFrame:
+    """
+    For each station compute the number of competitors within `radius_km` and
+    the distance to the nearest competitor.
+
+    Uses a fully vectorised pairwise Haversine matrix (O(N²) memory, fast for
+    N ≤ ~5000). For N=2000 the distance matrix is ≈32 MB of float64.
+
+    Parameters
+    ----------
+    df_stations : pd.DataFrame  — must contain columns: uuid, lat_col, lon_col
+    radius_km   : float         — competition radius in km
+    lat_col     : str           — column name for latitude
+    lon_col     : str           — column name for longitude
+
+    Returns
+    -------
+    pd.DataFrame with columns:
+        uuid, competitor_count_{radius_km}km, nearest_competitor_km
+    """
+    lats = np.radians(df_stations[lat_col].values.astype(float))
+    lons = np.radians(df_stations[lon_col].values.astype(float))
+
+    R = 6_371.0
+    dlat = lats[:, None] - lats[None, :]
+    dlon = lons[:, None] - lons[None, :]
+    a = (np.sin(dlat / 2) ** 2
+         + np.cos(lats[:, None]) * np.cos(lats[None, :]) * np.sin(dlon / 2) ** 2)
+    dist = R * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+    np.fill_diagonal(dist, np.inf)
+
+    radius_col = f"competitor_count_{int(radius_km)}km"
+    return pd.DataFrame({
+        "uuid": df_stations["uuid"].values,
+        radius_col: (dist <= radius_km).sum(axis=1).astype(int),
+        "nearest_competitor_km": dist.min(axis=1),
+    })
 
 
 def select_best_station_per_sector(candidates: pd.DataFrame) -> pd.DataFrame:

@@ -28,12 +28,12 @@ def plot_price_timeseries(
     fuel_type : fuel type prefix used in column names
     """
     price_cols = [c for c in df_hourly.columns if c.startswith(f"{fuel_type}_")]
-    labels = [c.replace(f"{fuel_type}_Route_", "") for c in price_cols]
+    labels = [c.replace(f"{fuel_type}_", "").replace("Route_", "") for c in price_cols]
 
     fig, ax = plt.subplots(figsize=(14, 4))
     for col, label in zip(price_cols, labels):
         ax.plot(df_hourly.index, df_hourly[col], lw=0.5, label=label)
-    ax.set_title("Diesel-Preise an 5 Speditionsstationen")
+    ax.set_title(f"{fuel_type.capitalize()}-Preise")
     ax.set_ylabel("€/L")
     ax.legend(loc="upper left", fontsize=8)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
@@ -41,7 +41,7 @@ def plot_price_timeseries(
     plt.show()
 
     fig, ax = plt.subplots(figsize=(6, 5))
-    corr_labels = [c.replace(f"{fuel_type}_Route_", "") for c in price_cols]
+    corr_labels = [c.replace(f"{fuel_type}_", "").replace("Route_", "") for c in price_cols]
     sns.heatmap(
         df_hourly[price_cols].corr(),
         annot=True, fmt=".2f", cmap="coolwarm",
@@ -63,7 +63,7 @@ def plot_intraday_by_region(
     actionable intelligence for the dispatcher.
     """
     price_cols = [c for c in df_hourly.columns if c.startswith(f"{fuel_type}_")]
-    labels = [c.replace(f"{fuel_type}_Route_", "") for c in price_cols]
+    labels = [c.replace(f"{fuel_type}_", "").replace("Route_", "") for c in price_cols]
 
     df = df_hourly[price_cols].copy()
     df["hour"] = df.index.hour
@@ -225,6 +225,176 @@ def plot_actual_vs_predicted_14d(
     plt.show()
 
 
+def plot_learning_curve(model) -> None:
+    """
+    Plot the MLP training loss curve and (if available) the validation R² curve.
+
+    Parameters
+    ----------
+    model : fitted MLPRegressor with loss_curve_ attribute
+    """
+    epochs = np.arange(1, len(model.loss_curve_) + 1)
+    fig, ax1 = plt.subplots(figsize=(9, 4))
+
+    ax1.plot(epochs, model.loss_curve_, color="steelblue", label="Train Loss (MSE)")
+    ax1.set_xlabel("Epoche")
+    ax1.set_ylabel("Train Loss (MSE)", color="steelblue")
+
+    if hasattr(model, "validation_scores_") and model.validation_scores_:
+        ax2 = ax1.twinx()
+        ax2.plot(
+            epochs[: len(model.validation_scores_)], model.validation_scores_,
+            ls="--", color="tomato", label="Val Score (R²)",
+        )
+        ax2.set_ylabel("Val Score (R²)", color="tomato")
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, fontsize=9)
+    else:
+        ax1.legend(fontsize=9)
+
+    ax1.set_title("MLP Lernkurve")
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_residuals(residuals: pd.DataFrame) -> None:
+    """
+    Histogram of prediction residuals for each column (cluster / station).
+
+    Parameters
+    ----------
+    residuals : DataFrame with one column per cluster/station, values = (actual - predicted)
+    """
+    n = len(residuals.columns)
+    fig, axes = plt.subplots(1, n, figsize=(3.5 * n, 3.5))
+    if n == 1:
+        axes = [axes]
+
+    for ax, col in zip(axes, residuals.columns):
+        label = col.replace("diesel_", "").replace("Route_", "")
+        ax.hist(residuals[col].dropna(), bins=60, color="steelblue",
+                edgecolor="white", alpha=0.85)
+        ax.axvline(0, color="tomato", lw=1.2)
+        ax.set_title(label)
+        ax.set_xlabel("Residual (€/L)")
+
+    fig.suptitle("Residualverteilung je Cluster / Station (t+1h)", y=1.02)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_forecast_72h(forecast_df: pd.DataFrame, fuel_type: str = "diesel") -> None:
+    """
+    Line + shaded-band chart of a 72-hour price forecast.
+
+    Parameters
+    ----------
+    forecast_df : DataFrame indexed by timestamp, one column per cluster/station
+    fuel_type   : fuel type string used only for the title
+    """
+    COLORS = ["steelblue", "darkorange", "green", "crimson", "purple"]
+    fig, ax = plt.subplots(figsize=(12, 4))
+
+    for col, color in zip(forecast_df.columns, COLORS):
+        label = col.replace(f"{fuel_type}_", "").replace("Route_", "")
+        ax.plot(forecast_df.index, forecast_df[col], lw=1.8, label=label, color=color)
+        ax.fill_between(
+            forecast_df.index,
+            forecast_df[col] - 0.005,
+            forecast_df[col] + 0.005,
+            alpha=0.15, color=color,
+        )
+
+    ax.set_title(f"72h-{fuel_type.capitalize()}-Preisvorhersage je Cluster")
+    ax.set_ylabel("€/L")
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d.%m %H:%M"))
+    ax.tick_params(axis="x", rotation=30)
+    ax.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_cost_sensitivity(
+    trucks: int,
+    daily_liters: float,
+    price_base: float = 1.70,
+    price_scenarios: list | None = None,
+) -> None:
+    """
+    Two-panel cost-sensitivity chart for a diesel fleet:
+      1. Cumulative cost deviation over 30 days (fan chart)
+      2. 30-day total impact as a lollipop chart
+
+    Parameters
+    ----------
+    trucks          : number of trucks in the fleet
+    daily_liters    : total litres consumed per day (all trucks)
+    price_base      : reference price in €/L
+    price_scenarios : list of €/L scenarios to compare (default: 5 around base)
+    """
+    if price_scenarios is None:
+        delta = 0.10
+        price_scenarios = [round(price_base + d, 2)
+                           for d in [-2*delta/2, -delta/2, 0, delta/2, 2*delta/2]]
+        price_scenarios = sorted(set(price_scenarios))
+
+    COLORS = ["#1A237E", "#42A5F5", "#9E9E9E", "#EF5350", "#B71C1C"]
+    days = np.arange(0, 31)
+    cum_dev  = {p: (price_base - p) * daily_liters * days for p in price_scenarios}
+    total_30 = {p: (price_base - p) * daily_liters * 30   for p in price_scenarios}
+    max_abs  = max(abs(v) for v in total_30.values())
+
+    # ── Fan chart ──────────────────────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=(11, 5))
+    ax.axhline(0, color="#424242", lw=1.5)
+    for p, color in zip(price_scenarios, COLORS):
+        ls = "--" if p == price_base else "-"
+        ax.plot(days, cum_dev[p], color=color, lw=2.0 if p != price_base else 1.5,
+                ls=ls, label=f"{p:.2f} €/L")
+    ax.set_title(
+        f"Kumulative Kostenabweichung über 30 Tage  ·  {trucks} LKW · {daily_liters:,.0f} L/Tag\n"
+        f"(Basispreis {price_base:.2f} €/L)",
+        fontsize=12, fontweight="bold",
+    )
+    ax.set_xlabel("Tage")
+    ax.set_ylabel("Kumulative Einsparung / Mehrkosten (€)")
+    ax.legend(fontsize=9)
+    ax.grid(alpha=0.2, ls=":")
+    plt.tight_layout()
+    plt.show()
+
+    # ── Lollipop chart ─────────────────────────────────────────────────────
+    pad  = max_abs * 0.20
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.axvline(0, color="#424242", lw=1.5)
+    offset = max_abs * 0.02
+    for i, (p, color) in enumerate(zip(price_scenarios, COLORS)):
+        val = total_30[p]
+        ax.hlines(i, 0, val, color=color, lw=3, alpha=0.8)
+        ax.scatter(val, i, color=color, s=150, zorder=5, edgecolors="white", linewidths=1)
+        if val > 0:
+            ax.text(val + offset, i, f"+{val:,.0f} €", va="center", ha="left",
+                    fontsize=10, fontweight="bold", color=color)
+        elif val < 0:
+            ax.text(val - offset, i, f"{val:,.0f} €", va="center", ha="right",
+                    fontsize=10, fontweight="bold", color=color)
+        else:
+            ax.text(offset, i, "Basispreis", va="center", ha="left",
+                    fontsize=10, color="#757575", fontstyle="italic")
+    ax.set_yticks(range(len(price_scenarios)))
+    ax.set_yticklabels([f"{p:.2f} €/L" for p in price_scenarios], fontsize=11)
+    ax.set_title(
+        f"Kostenauswirkung über 30 Tage  ·  {trucks} LKW · {daily_liters:,.0f} L/Tag",
+        fontsize=12, fontweight="bold",
+    )
+    ax.set_xlabel("€ / 30 Tage")
+    ax.set_xlim(-max_abs - pad, max_abs + pad)
+    ax.grid(axis="x", alpha=0.2, ls=":")
+    plt.tight_layout()
+    plt.show()
+
+
 def plot_cv_folds(
     fold_records: list[dict],
     cv_maes: list[float],
@@ -317,7 +487,7 @@ def plot_cv_folds(
     ax_bar.set_xticks(range(1, len(cv_maes) + 1))
     ax_bar.set_xticklabels([f"Fold {i}" for i in range(1, len(cv_maes) + 1)])
     ax_bar.set_ylabel("MAE (ct/L)")
-    ax_bar.set_title("MAE je Fold")
+    ax_bar.set_title("MAE (Mean Average Error) je Fold")
     ax_bar.legend(fontsize=9)
     for bar, mae in zip(bars, cv_maes):
         ax_bar.text(

@@ -34,6 +34,7 @@ services:
     volumes:
       - ./backend:/app
       - ./data:/app/data
+      - ./notebooks:/app/notebooks:ro
     depends_on:
       db:
         condition: service_healthy
@@ -46,13 +47,13 @@ services:
       dockerfile: Dockerfile
     container_name: spritpreis_frontend
     environment:
-      VITE_API_URL: http://localhost:8000
+      VITE_PROXY_TARGET: http://backend:8000
       CHOKIDAR_USEPOLLING: "true"
     ports:
       - "3000:3000"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+      - frontend_node_modules:/app/node_modules
     depends_on:
       - backend
     command: npm run dev -- --host
@@ -73,3 +74,4 @@ services:
 
 volumes:
   postgres_data:
+  frontend_node_modules:

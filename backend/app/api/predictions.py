@@ -10,3 +10,13 @@ async def get_short_term_predictions(
     hours: int = Query(72, ge=1, le=168),
 ):
     return await service.get_predictions(fuel_type, hours)
+
+
+@router.get("/spedition")
+async def get_spedition_predictions():
+    return await service.get_spedition_predictions()
+
+
+@router.get("/b29")
+async def get_b29_predictions():
+    return await service.get_b29_predictions()

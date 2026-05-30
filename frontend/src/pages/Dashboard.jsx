@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import Header from '../components/layout/Header'
 import PriceLineChart from '../components/charts/PriceLineChart'
 import { api, FUEL_COLORS, FUEL_LABELS, DEFAULT_LAT, DEFAULT_LNG } from '../services/api'
@@ -23,6 +24,73 @@ function PriceCard({ fuelType, price, change }) {
         {price ? price.toFixed(3) : '–'}
       </div>
       <div className="text-xs text-gray-400">EUR / Liter · Ø aller Stationen</div>
+    </div>
+  )
+}
+
+function MetricChip({ label, value }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 font-medium">
+      <span className="text-blue-500">{label}</span>
+      {value}
+    </span>
+  )
+}
+
+function ScenarioCard({ title, subtitle, modelInfo, savings, tableHead, tableRows, linkTo }) {
+  const cheapestIdx = tableRows.reduce(
+    (best, r, i) => (r.price < tableRows[best].price ? i : best),
+    0
+  )
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-gray-800">{title}</p>
+          <p className="text-xs text-gray-400 mt-0.5 font-mono">{subtitle}</p>
+        </div>
+        <span className="shrink-0 text-xs bg-green-100 text-green-800 rounded-full px-2.5 py-1 font-semibold">
+          {savings}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {modelInfo.map((m) => (
+          <MetricChip key={m.label} label={m.label} value={m.value} />
+        ))}
+      </div>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-gray-400 border-b border-gray-100">
+            {tableHead.map((h) => (
+              <th key={h} className={`pb-1.5 font-medium ${h === tableHead[0] ? 'text-left' : 'text-right'}`}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {tableRows.map((r, i) => (
+            <tr key={r.label} className={`border-b border-gray-50 last:border-0 ${i === cheapestIdx ? 'bg-green-50' : ''}`}>
+              <td className={`py-1.5 font-medium ${i === cheapestIdx ? 'text-green-800' : 'text-gray-700'}`}>
+                {r.label}
+                {i === cheapestIdx && (
+                  <span className="ml-1.5 text-xs bg-green-200 text-green-800 rounded-full px-1.5 py-0.5">
+                    günstigste
+                  </span>
+                )}
+              </td>
+              <td className="py-1.5 text-right font-mono text-gray-600">{r.price.toFixed(3)}</td>
+              <td className="py-1.5 text-right text-gray-500">{r.sub}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <Link
+        to={linkTo}
+        className="self-end text-xs text-blue-600 hover:text-blue-700 font-medium"
+      >
+        Dispatch-Plan ansehen →
+      </Link>
     </div>
   )
 }
@@ -55,6 +123,8 @@ export default function Dashboard() {
   const [nearbyStations, setNearbyStations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [speditionData, setSpeditionData] = useState(null)
+  const [b29Data, setB29Data] = useState(null)
 
   useEffect(() => {
     setLoading(true)
@@ -64,11 +134,15 @@ export default function Dashboard() {
       api.prices.history('diesel', 30),
       api.analytics.bestTime(fuelType),
       api.stations.nearby(DEFAULT_LAT, DEFAULT_LNG, 25),
+      api.predictions.spedition(),
+      api.predictions.b29(),
     ])
-      .then(([h5, h10, hd, bt, stations]) => {
+      .then(([h5, h10, hd, bt, stations, sp, b29]) => {
         setHistory({ e5: h5.data, e10: h10.data, diesel: hd.data })
         setBestTime(bt)
         setNearbyStations(stations.stations?.slice(0, 5) || [])
+        setSpeditionData(sp)
+        setB29Data(b29)
         setError(null)
       })
       .catch(setError)
@@ -98,6 +172,50 @@ export default function Dashboard() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
             Fehler beim Laden: {error}
+          </div>
+        )}
+
+        {/* Dispatch overview — two scenario cards */}
+        {(speditionData || b29Data) && (
+          <div className="grid grid-cols-2 gap-6">
+            {speditionData && (
+              <ScenarioCard
+                title="Spedition MLP — 5 Routen"
+                subtitle={speditionData.model.architecture}
+                modelInfo={[
+                  { label: 'MAE', value: `${speditionData.model.mae.toFixed(4)} €/L` },
+                  { label: 'R²', value: speditionData.model.r2.toFixed(3) },
+                  { label: 'Pick-Acc', value: `${(speditionData.model.pick_accuracy_t1 * 100).toFixed(0)} %` },
+                ]}
+                savings={`€ ${speditionData.savings.per_day_eur.toFixed(0)}/Tag · 5 Fahrzeuge`}
+                tableHead={['Route / Station', 'Preis', 'Best. Fenster']}
+                tableRows={speditionData.recommendations.map((r) => ({
+                  label: `${r.route} · ${r.station_name}`,
+                  price: r.current_price,
+                  sub: r.optimal_time_label,
+                }))}
+                linkTo="/predictions"
+              />
+            )}
+            {b29Data && (
+              <ScenarioCard
+                title="B29 Fleet MLP — 4 Cluster"
+                subtitle={b29Data.model.architecture}
+                modelInfo={[
+                  { label: 'MAE', value: `${b29Data.model.mae.toFixed(3)} €/L` },
+                  { label: 'R²', value: b29Data.model.r2.toFixed(2) },
+                  { label: '−MAE', value: `${b29Data.model.mae_improvement_pct.toFixed(0)} % vs Baseline` },
+                ]}
+                savings={`€ ${b29Data.savings.per_day_eur.toFixed(0)}/Tag · 25 Fahrzeuge`}
+                tableHead={['Cluster', 'Preis', 'Opt. Zeitpunkt']}
+                tableRows={b29Data.recommendations.map((r) => ({
+                  label: r.cluster,
+                  price: r.current_price,
+                  sub: r.optimal_time_label,
+                }))}
+                linkTo="/predictions"
+              />
+            )}
           </div>
         )}
 

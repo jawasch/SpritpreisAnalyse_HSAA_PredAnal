@@ -4,7 +4,9 @@ const nav = [
   { to: '/', label: 'Dashboard', icon: '📊' },
   { to: '/stations', label: 'Tankstellen', icon: '🗺️' },
   { to: '/analytics', label: 'Analyse', icon: '📈' },
-  { to: '/predictions', label: 'Prognose', icon: '🔮' },
+  { to: '/predictions', label: 'Dispatch-Plan', icon: '🚛' },
+  { to: '/geo', label: '3D Karte', icon: '🌐' },
+  { to: '/notebooks', label: 'Notebooks', icon: '📓' },
 ]
 
 export default function Sidebar() {

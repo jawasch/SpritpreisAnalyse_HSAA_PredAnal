@@ -67,6 +67,58 @@ STATIONS = [
 
 _STATION_BY_ID = {s["id"]: s for s in STATIONS}
 
+# ── Spedition scenario: 5 directional stations from Aalen ────────────────────
+SPEDITION_STATIONS = [
+    {"id": "avia-ipsheim",   "name": "AVIA Ipsheim",    "route": "Nord", "distance_km": 81,  "brand": "AVIA", "lat": 49.2698, "lng": 10.4901},
+    {"id": "avia-nuernberg", "name": "AVIA Nürnberg",   "route": "NO",   "distance_km": 90,  "brand": "AVIA", "lat": 49.4521, "lng": 11.0767},
+    {"id": "esso-olching",   "name": "ESSO Olching",    "route": "Ost",  "distance_km": 114, "brand": "Esso", "lat": 48.2024, "lng": 11.3308},
+    {"id": "ran-biberach",   "name": "RAN Biberach",    "route": "SW",   "distance_km": 86,  "brand": "Star", "lat": 48.0984, "lng": 9.7835},
+    {"id": "avia-muehlhsn",  "name": "AVIA Mühlhausen", "route": "NW",   "distance_km": 109, "brand": "AVIA", "lat": 48.9425, "lng": 9.2765},
+]
+_SPEDITION_COLORS = ["#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#22c55e"]
+
+# ── B29 corridor: 4 geographic cluster definitions ───────────────────────────
+B29_CLUSTERS = [
+    {"id": "aalen",              "label": "Aalen",       "color": "#3b82f6", "offset": 0.000},
+    {"id": "schwaebisch_gmuend", "label": "Schw. Gmünd", "color": "#8b5cf6", "offset": 0.003},
+    {"id": "schorndorf",         "label": "Schorndorf",  "color": "#f59e0b", "offset": 0.007},
+    {"id": "stuttgart",          "label": "Stuttgart",   "color": "#ef4444", "offset": 0.015},
+]
+
+# ── Hardcoded metric arrays from notebook results ────────────────────────────
+_SPEDITION_PICK_ACCURACY = [
+    {"horizon_h": 1,  "accuracy": 0.61},
+    {"horizon_h": 6,  "accuracy": 0.59},
+    {"horizon_h": 12, "accuracy": 0.58},
+    {"horizon_h": 24, "accuracy": 0.57},
+    {"horizon_h": 36, "accuracy": 0.55},
+    {"horizon_h": 48, "accuracy": 0.54},
+    {"horizon_h": 60, "accuracy": 0.53},
+    {"horizon_h": 72, "accuracy": 0.52},
+]
+
+_SPEDITION_SPEARMAN = [
+    {"horizon_h": 1,  "rho": 0.78},
+    {"horizon_h": 6,  "rho": 0.77},
+    {"horizon_h": 12, "rho": 0.75},
+    {"horizon_h": 24, "rho": 0.72},
+    {"horizon_h": 36, "rho": 0.68},
+    {"horizon_h": 48, "rho": 0.65},
+    {"horizon_h": 60, "rho": 0.63},
+    {"horizon_h": 72, "rho": 0.62},
+]
+
+_B29_MAE_BY_HORIZON = [
+    {"horizon_h": 1,  "mlp_mae": 0.028, "baseline_mae": 0.036},
+    {"horizon_h": 6,  "mlp_mae": 0.029, "baseline_mae": 0.037},
+    {"horizon_h": 12, "mlp_mae": 0.030, "baseline_mae": 0.038},
+    {"horizon_h": 24, "mlp_mae": 0.032, "baseline_mae": 0.041},
+    {"horizon_h": 36, "mlp_mae": 0.034, "baseline_mae": 0.043},
+    {"horizon_h": 48, "mlp_mae": 0.036, "baseline_mae": 0.045},
+    {"horizon_h": 60, "mlp_mae": 0.038, "baseline_mae": 0.048},
+    {"horizon_h": 72, "mlp_mae": 0.040, "baseline_mae": 0.050},
+]
+
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -241,6 +293,177 @@ def get_best_time(fuel_type: str) -> dict:
         "potential_savings_eur": savings,
         "potential_savings_percent": round(savings / overall_avg * 100, 2),
         "insight": insight,
+    }
+
+
+def get_geo_timeseries(
+    fuel_type: str = "diesel",
+    date: str | None = None,
+    interval: str = "hour",
+    region: str = "bw",
+) -> dict:
+    """
+    Hourly (or daily) price timeseries for all mock stations on a given date.
+
+    Response shape consumed by the frontend GeoPriceMap3D component:
+    {
+      "stations": [{ "id", "name", "brand", "lat", "lng", "prices": [{timestamp, price}] }],
+      "meta": { "fuel_type", "date", "interval" }
+    }
+    """
+    from datetime import date as date_cls
+
+    if date is None:
+        ref_date = datetime.now(timezone.utc).date()
+    else:
+        ref_date = date_cls.fromisoformat(date)
+
+    if interval == "hour":
+        n_steps = 24
+        delta = timedelta(hours=1)
+    else:  # day — last 30 days
+        n_steps = 30
+        delta = timedelta(days=1)
+        ref_date = ref_date - timedelta(days=n_steps - 1)
+
+    stations_out = []
+    for s in STATIONS:
+        prices = []
+        for step in range(n_steps):
+            dt = datetime(
+                ref_date.year, ref_date.month, ref_date.day,
+                tzinfo=timezone.utc,
+            ) + step * delta
+            price = _calc_price(s, fuel_type, dt)
+            prices.append({"timestamp": dt.isoformat(), "price": price})
+
+        stations_out.append({
+            "id": s["id"],
+            "name": s["name"],
+            "brand": s["brand"],
+            "lat": s["lat"],
+            "lng": s["lng"],
+            "prices": prices,
+        })
+
+    return {
+        "ok": True,
+        "stations": stations_out,
+        "meta": {
+            "fuel_type": fuel_type,
+            "date": ref_date.isoformat(),
+            "interval": interval,
+            "n_stations": len(stations_out),
+        },
+    }
+
+
+def get_spedition_predictions() -> dict:
+    """72-hour diesel forecast for the 5 Spedition route stations."""
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+
+    stations_out = []
+    for i, s in enumerate(SPEDITION_STATIONS):
+        forecast = []
+        for h in range(73):
+            dt = now + timedelta(hours=h)
+            price = _calc_price(s, "diesel", dt)
+            forecast.append({"hour_offset": h, "predicted_price": price})
+        stations_out.append({
+            "id": s["id"],
+            "name": s["name"],
+            "route": s["route"],
+            "distance_km": s["distance_km"],
+            "color": _SPEDITION_COLORS[i],
+            "forecast": forecast,
+        })
+
+    recommendations = []
+    for i, s_out in enumerate(stations_out):
+        current = s_out["forecast"][0]["predicted_price"]
+        best = min(s_out["forecast"], key=lambda f: f["predicted_price"])
+        optimal_dt = now + timedelta(hours=best["hour_offset"])
+        recommendations.append({
+            "route": SPEDITION_STATIONS[i]["route"],
+            "station_name": s_out["name"],
+            "distance_km": s_out["distance_km"],
+            "current_price": current,
+            "predicted_best_price": best["predicted_price"],
+            "best_hour_offset": best["hour_offset"],
+            "optimal_time_label": f"{optimal_dt.strftime('%d.%m. %H:%M')} Uhr",
+            "savings_vs_now": round(current - best["predicted_price"], 4),
+        })
+    recommendations.sort(key=lambda r: r["current_price"])
+
+    return {
+        "ok": True,
+        "generated_at": now.isoformat(),
+        "model": {
+            "name": "Spedition MLP",
+            "architecture": "101→[256,128]→360",
+            "mae": 0.0377,
+            "r2": 0.928,
+            "spearman_avg": 0.75,
+            "pick_accuracy_t1": 0.61,
+            "baseline_pick_accuracy": 0.20,
+        },
+        "savings": {"per_day_eur": 17.0, "per_year_eur": 6205.0, "trucks": 5},
+        "recommendations": recommendations,
+        "stations": stations_out,
+        "pick_accuracy_by_horizon": _SPEDITION_PICK_ACCURACY,
+        "spearman_by_horizon": _SPEDITION_SPEARMAN,
+    }
+
+
+def get_b29_predictions() -> dict:
+    """72-hour diesel forecast for the 4 B29 corridor clusters."""
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    synthetic_base = {"id": "b29-base", "brand": "AVIA"}
+
+    clusters_out = []
+    for c in B29_CLUSTERS:
+        forecast = []
+        for h in range(73):
+            dt = now + timedelta(hours=h)
+            price = round(_calc_price(synthetic_base, "diesel", dt) + c["offset"], 3)
+            forecast.append({"hour_offset": h, "predicted_price": price})
+        clusters_out.append({
+            "id": c["id"],
+            "label": c["label"],
+            "color": c["color"],
+            "forecast": forecast,
+        })
+
+    recommendations = []
+    for c_out in clusters_out:
+        current = c_out["forecast"][0]["predicted_price"]
+        best = min(c_out["forecast"], key=lambda f: f["predicted_price"])
+        optimal_dt = now + timedelta(hours=best["hour_offset"])
+        recommendations.append({
+            "cluster": c_out["label"],
+            "cluster_id": c_out["id"],
+            "current_price": current,
+            "predicted_best_price": best["predicted_price"],
+            "optimal_hour_offset": best["hour_offset"],
+            "optimal_time_label": f"{optimal_dt.strftime('%d.%m. %H:%M')} Uhr",
+            "savings_vs_now": round(current - best["predicted_price"], 4),
+        })
+    recommendations.sort(key=lambda r: r["current_price"])
+
+    return {
+        "ok": True,
+        "generated_at": now.isoformat(),
+        "model": {
+            "name": "B29 Fleet MLP",
+            "architecture": "80→[256,128]→288",
+            "mae": 0.031,
+            "mae_improvement_pct": 23.0,
+            "r2": 0.93,
+        },
+        "savings": {"per_day_eur": 187.50, "per_year_eur": 46875.0, "trucks": 25},
+        "recommendations": recommendations,
+        "clusters": clusters_out,
+        "mae_by_horizon": _B29_MAE_BY_HORIZON,
     }
 
 

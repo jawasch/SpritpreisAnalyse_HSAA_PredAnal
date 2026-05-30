@@ -7,7 +7,13 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3000,
     watch: {
-      usePolling: true
-    }
-  }
+      usePolling: true,
+    },
+    proxy: {
+      '/api': {
+        target: process.env.VITE_PROXY_TARGET || 'http://backend:8000',
+        changeOrigin: true,
+      },
+    },
+  },
 })
