@@ -132,7 +132,7 @@ def load_raw_prices_parallel(
             as_completed(futures),
             total=len(filtered),
             desc="CSV-Dateien lesen",
-            unit="Datei",
+            unit="Datei(en)",
         ):
             result = fut.result()
             if result is not None:
