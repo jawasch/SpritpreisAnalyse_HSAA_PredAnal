@@ -128,11 +128,17 @@ export default function Analytics() {
         {(speditionData || b29Data) && (
           <>
             <div className="border-t border-gray-200 pt-2">
-              <h2 className="text-base font-semibold text-gray-800">
-                Modellleistung — MLP Prognosequalität
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold text-gray-800">
+                  Modellleistung — MLP Prognosequalität
+                </h2>
+                <span className="text-xs bg-amber-100 text-amber-700 rounded-full px-2.5 py-0.5 font-semibold">
+                  Diesel
+                </span>
+              </div>
               <p className="text-xs text-gray-400 mt-0.5">
-                Basierend auf Spedition MLP (5 Stationen) und B29 Fleet MLP (4 Cluster) — Test 2024–2026
+                Spedition MLP (5 Stationen) und B29 Fleet MLP (4 Cluster) — Test 2024–2026 ·
+                E5/E10-Modelle nicht verfügbar (nur allgemeine Preisanalyse via Heatmap &amp; Trend)
               </p>
             </div>
 

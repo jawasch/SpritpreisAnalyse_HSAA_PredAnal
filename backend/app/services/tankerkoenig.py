@@ -58,16 +58,33 @@ class TankerkoenigService:
             return r.json()
 
     async def get_price_history(self, fuel_type: str, days: int = 30) -> dict:
-        # History endpoint is always generated (TK API has no history endpoint)
+        if fuel_type == "diesel":
+            try:
+                from .ml_service import ml_service
+                return ml_service.get_diesel_price_history(days)
+            except Exception:
+                pass
         return mock_data.get_price_history(fuel_type, days)
 
     # ── Analytics ───────────────────────────────────────────────────────────
 
     async def get_heatmap_data(self, fuel_type: str) -> dict:
-        return mock_data.get_heatmap_data(fuel_type)
+        try:
+            from .ml_service import get_heatmap_from_parquet
+            return get_heatmap_from_parquet(fuel_type)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("Heatmap fallback to mock: %s", exc)
+            return mock_data.get_heatmap_data(fuel_type)
 
     async def get_best_time(self, fuel_type: str) -> dict:
-        return mock_data.get_best_time(fuel_type)
+        try:
+            from .ml_service import get_best_time_from_parquet
+            return get_best_time_from_parquet(fuel_type)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("BestTime fallback to mock: %s", exc)
+            return mock_data.get_best_time(fuel_type)
 
     # ── Analytics: Geo-Timeseries ────────────────────────────────────────────
 
@@ -77,19 +94,67 @@ class TankerkoenigService:
         date: str | None = None,
         interval: str = "hour",
         region: str = "bw",
+        scenario: str = "all",
     ) -> dict:
-        return mock_data.get_geo_timeseries(fuel_type, date, interval, region)
+        try:
+            from .ml_service import ml_service
+            return ml_service.get_geo_timeseries_real(fuel_type, date, interval, scenario)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("GeoTimeseries fallback to mock: %s", exc)
+            return mock_data.get_geo_timeseries(fuel_type, date, interval, region)
 
     # ── Predictions ─────────────────────────────────────────────────────────
 
     async def get_predictions(self, fuel_type: str, hours: int = 72) -> dict:
         return mock_data.get_predictions(fuel_type, hours)
 
+    async def get_live_prices_for_uuids(self, uuids: list[str]) -> dict[str, float]:
+        """Fetch current diesel price for each UUID from the live TK API."""
+        if self.use_mock or not self.api_key:
+            return {}
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                r = await client.get(
+                    f"{_BASE_URL}/prices.php",
+                    params={"ids": ",".join(uuids[:10]), "apikey": self.api_key},
+                )
+                r.raise_for_status()
+                data = r.json()
+            return {
+                uid: data["prices"][uid]["diesel"]
+                for uid in uuids
+                if uid in data.get("prices", {})
+                and isinstance(data["prices"][uid].get("diesel"), (int, float))
+            }
+        except Exception:
+            return {}
+
     async def get_spedition_predictions(self) -> dict:
-        return mock_data.get_spedition_predictions()
+        try:
+            from .ml_service import ml_service, ROUTE_META
+            uuids = [m["uuid"] for m in ROUTE_META.values()]
+            live = await self.get_live_prices_for_uuids(uuids)
+            return ml_service.predict_spedition(live_prices=live)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("Spedition ML fallback to mock: %s", exc)
+            result = mock_data.get_spedition_predictions()
+            result["inference_error"] = str(exc)
+            result["data_source"] = "mock_fallback"
+            return result
 
     async def get_b29_predictions(self) -> dict:
-        return mock_data.get_b29_predictions()
+        try:
+            from .ml_service import ml_service
+            return ml_service.predict_b29()
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("B29 ML fallback to mock: %s", exc)
+            result = mock_data.get_b29_predictions()
+            result["inference_error"] = str(exc)
+            result["data_source"] = "mock_fallback"
+            return result
 
 
 # Module-level singleton — imported by routers

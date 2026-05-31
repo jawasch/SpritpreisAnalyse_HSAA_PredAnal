@@ -4,12 +4,19 @@ import Header from '../components/layout/Header'
 import PriceLineChart from '../components/charts/PriceLineChart'
 import { api, FUEL_COLORS, FUEL_LABELS, DEFAULT_LAT, DEFAULT_LNG } from '../services/api'
 
-function PriceCard({ fuelType, price, change }) {
+function PriceCard({ fuelType, price, change, isActive }) {
   const up = change >= 0
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-1">
+    <div
+      className={`bg-white rounded-xl border p-5 flex flex-col gap-1 transition-all ${
+        isActive ? 'border-blue-400 ring-2 ring-blue-100 shadow-sm' : 'border-gray-200'
+      }`}
+    >
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-500">{FUEL_LABELS[fuelType]}</span>
+        <span className={`text-sm font-medium ${isActive ? 'text-blue-700' : 'text-gray-500'}`}>
+          {FUEL_LABELS[fuelType]}
+          {isActive && <span className="ml-1.5 text-xs text-blue-500">●</span>}
+        </span>
         <span
           className="text-xs font-semibold px-2 py-0.5 rounded-full"
           style={{
@@ -37,7 +44,7 @@ function MetricChip({ label, value }) {
   )
 }
 
-function ScenarioCard({ title, subtitle, modelInfo, savings, tableHead, tableRows, linkTo }) {
+function ScenarioCard({ title, subtitle, modelInfo, savings, tableHead, tableRows, linkTo, parquetLast, inferenceError, dataSource }) {
   const cheapestIdx = tableRows.reduce(
     (best, r, i) => (r.price < tableRows[best].price ? i : best),
     0
@@ -49,15 +56,33 @@ function ScenarioCard({ title, subtitle, modelInfo, savings, tableHead, tableRow
           <p className="text-sm font-semibold text-gray-800">{title}</p>
           <p className="text-xs text-gray-400 mt-0.5 font-mono">{subtitle}</p>
         </div>
-        <span className="shrink-0 text-xs bg-green-100 text-green-800 rounded-full px-2.5 py-1 font-semibold">
-          {savings}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span className="shrink-0 text-xs bg-green-100 text-green-800 rounded-full px-2.5 py-1 font-semibold">
+            {savings}
+          </span>
+          <span className="text-xs bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 font-medium">
+            Diesel
+          </span>
+        </div>
       </div>
+
+      {inferenceError && (
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
+          Mock-Daten (ML-Fehler): {inferenceError.slice(0, 80)}
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-1.5">
         {modelInfo.map((m) => (
           <MetricChip key={m.label} label={m.label} value={m.value} />
         ))}
+        {parquetLast && (
+          <span className="text-xs text-gray-400 self-center">
+            Daten bis {parquetLast.slice(0, 10)}
+          </span>
+        )}
       </div>
+
       <table className="w-full text-xs">
         <thead>
           <tr className="text-gray-400 border-b border-gray-100">
@@ -85,25 +110,22 @@ function ScenarioCard({ title, subtitle, modelInfo, savings, tableHead, tableRow
           ))}
         </tbody>
       </table>
-      <Link
-        to={linkTo}
-        className="self-end text-xs text-blue-600 hover:text-blue-700 font-medium"
-      >
+      <Link to={linkTo} className="self-end text-xs text-blue-600 hover:text-blue-700 font-medium">
         Dispatch-Plan ansehen →
       </Link>
     </div>
   )
 }
 
-function BestTimeCard({ data }) {
+function BestTimeCard({ data, fuelType }) {
   if (!data) return null
-  const days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
   return (
     <div className="bg-green-50 border border-green-200 rounded-xl p-5">
       <div className="flex items-start gap-3">
-        <span className="text-2xl">💡</span>
         <div>
-          <p className="text-sm font-semibold text-green-800">Beste Tankzeit</p>
+          <p className="text-sm font-semibold text-green-800">
+            Beste Tankzeit · {FUEL_LABELS[fuelType]}
+          </p>
           <p className="text-sm text-green-700 mt-1">{data.insight}</p>
           <p className="text-xs text-green-600 mt-2">
             Ersparnis bis zu{' '}
@@ -117,32 +139,42 @@ function BestTimeCard({ data }) {
 }
 
 export default function Dashboard() {
-  const [fuelType, setFuelType] = useState('e5')
-  const [history, setHistory] = useState({})
-  const [bestTime, setBestTime] = useState(null)
+  const [fuelType, setFuelType]           = useState('e5')
+  const [history, setHistory]             = useState({})
+  const [bestTime, setBestTime]           = useState(null)
   const [nearbyStations, setNearbyStations] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [loading, setLoading]             = useState(true)
+  const [error, setError]                 = useState(null)
   const [speditionData, setSpeditionData] = useState(null)
-  const [b29Data, setB29Data] = useState(null)
+  const [b29Data, setB29Data]             = useState(null)
 
+  // Fetch price histories + dispatch data once on mount (diesel-only models, fuelType-independent)
   useEffect(() => {
-    setLoading(true)
     Promise.all([
       api.prices.history('e5', 30),
       api.prices.history('e10', 30),
       api.prices.history('diesel', 30),
-      api.analytics.bestTime(fuelType),
-      api.stations.nearby(DEFAULT_LAT, DEFAULT_LNG, 25),
       api.predictions.spedition(),
       api.predictions.b29(),
     ])
-      .then(([h5, h10, hd, bt, stations, sp, b29]) => {
+      .then(([h5, h10, hd, sp, b29]) => {
         setHistory({ e5: h5.data, e10: h10.data, diesel: hd.data })
-        setBestTime(bt)
-        setNearbyStations(stations.stations?.slice(0, 5) || [])
         setSpeditionData(sp)
         setB29Data(b29)
+      })
+      .catch(setError)
+  }, [])
+
+  // Fetch fuelType-dependent data (bestTime + nearby stations)
+  useEffect(() => {
+    setLoading(true)
+    Promise.all([
+      api.analytics.bestTime(fuelType),
+      api.stations.nearby(DEFAULT_LAT, DEFAULT_LNG, 25),
+    ])
+      .then(([bt, stations]) => {
+        setBestTime(bt)
+        setNearbyStations(stations.stations?.slice(0, 5) || [])
         setError(null)
       })
       .catch(setError)
@@ -150,13 +182,13 @@ export default function Dashboard() {
   }, [fuelType])
 
   const currentPrices = {
-    e5: history.e5?.[history.e5.length - 1]?.price,
-    e10: history.e10?.[history.e10.length - 1]?.price,
+    e5:     history.e5?.[history.e5.length - 1]?.price,
+    e10:    history.e10?.[history.e10.length - 1]?.price,
     diesel: history.diesel?.[history.diesel.length - 1]?.price,
   }
   const prevPrices = {
-    e5: history.e5?.[history.e5.length - 2]?.price,
-    e10: history.e10?.[history.e10.length - 2]?.price,
+    e5:     history.e5?.[history.e5.length - 2]?.price,
+    e10:    history.e10?.[history.e10.length - 2]?.price,
     diesel: history.diesel?.[history.diesel.length - 2]?.price,
   }
 
@@ -171,55 +203,72 @@ export default function Dashboard() {
       <div className="flex-1 overflow-auto p-6 space-y-6 bg-gray-50">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-            Fehler beim Laden: {error}
+            Fehler beim Laden: {String(error)}
           </div>
         )}
 
-        {/* Dispatch overview — two scenario cards */}
+        {/* Dispatch-Übersicht */}
         {(speditionData || b29Data) && (
-          <div className="grid grid-cols-2 gap-6">
-            {speditionData && (
-              <ScenarioCard
-                title="Spedition MLP — 5 Routen"
-                subtitle={speditionData.model.architecture}
-                modelInfo={[
-                  { label: 'MAE', value: `${speditionData.model.mae.toFixed(4)} €/L` },
-                  { label: 'R²', value: speditionData.model.r2.toFixed(3) },
-                  { label: 'Pick-Acc', value: `${(speditionData.model.pick_accuracy_t1 * 100).toFixed(0)} %` },
-                ]}
-                savings={`€ ${speditionData.savings.per_day_eur.toFixed(0)}/Tag · 5 Fahrzeuge`}
-                tableHead={['Route / Station', 'Preis', 'Best. Fenster']}
-                tableRows={speditionData.recommendations.map((r) => ({
-                  label: `${r.route} · ${r.station_name}`,
-                  price: r.current_price,
-                  sub: r.optimal_time_label,
-                }))}
-                linkTo="/predictions"
-              />
+          <div className="space-y-3">
+            {fuelType !== 'diesel' && (
+              <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Die Dispatch-Prognose basiert auf <strong className="ml-0.5">Diesel</strong> (Lkw-Flotte).
+                Für {FUEL_LABELS[fuelType]}-Analyse →{' '}
+                <Link to="/analytics" className="underline font-medium">Analyse-Seite</Link>
+              </div>
             )}
-            {b29Data && (
-              <ScenarioCard
-                title="B29 Fleet MLP — 4 Cluster"
-                subtitle={b29Data.model.architecture}
-                modelInfo={[
-                  { label: 'MAE', value: `${b29Data.model.mae.toFixed(3)} €/L` },
-                  { label: 'R²', value: b29Data.model.r2.toFixed(2) },
-                  { label: '−MAE', value: `${b29Data.model.mae_improvement_pct.toFixed(0)} % vs Baseline` },
-                ]}
-                savings={`€ ${b29Data.savings.per_day_eur.toFixed(0)}/Tag · 25 Fahrzeuge`}
-                tableHead={['Cluster', 'Preis', 'Opt. Zeitpunkt']}
-                tableRows={b29Data.recommendations.map((r) => ({
-                  label: r.cluster,
-                  price: r.current_price,
-                  sub: r.optimal_time_label,
-                }))}
-                linkTo="/predictions"
-              />
-            )}
+            <div className="grid grid-cols-2 gap-6">
+              {speditionData && (
+                <ScenarioCard
+                  title="Spedition MLP — 5 Routen"
+                  subtitle={speditionData.model.architecture}
+                  modelInfo={[
+                    { label: 'MAE',      value: `${speditionData.model.mae.toFixed(4)} €/L` },
+                    { label: 'R²',       value: speditionData.model.r2.toFixed(3) },
+                    { label: 'Pick-Acc', value: `${(speditionData.model.pick_accuracy_t1 * 100).toFixed(0)} %` },
+                  ]}
+                  savings={`€ ${speditionData.savings.per_day_eur.toFixed(0)}/Tag · 5 Fahrzeuge`}
+                  tableHead={['Route / Station', 'Preis', 'Best. Fenster']}
+                  tableRows={speditionData.recommendations.map((r) => ({
+                    label: `${r.route} · ${r.station_name}`,
+                    price: r.current_price,
+                    sub:   r.optimal_time_label,
+                  }))}
+                  linkTo="/predictions"
+                  parquetLast={speditionData.parquet_last}
+                  inferenceError={speditionData.inference_error}
+                  dataSource={speditionData.data_source}
+                />
+              )}
+              {b29Data && (
+                <ScenarioCard
+                  title="B29 Fleet MLP — 4 Cluster"
+                  subtitle={b29Data.model.architecture}
+                  modelInfo={[
+                    { label: 'MAE', value: b29Data.model.mae != null ? `${b29Data.model.mae.toFixed(3)} €/L` : 'n/a' },
+                    { label: 'R²',  value: b29Data.model.r2  != null ? b29Data.model.r2.toFixed(2)        : 'n/a' },
+                    b29Data.model.mae_improvement_pct != null
+                      ? { label: '−MAE', value: `${b29Data.model.mae_improvement_pct.toFixed(0)} % vs Baseline` }
+                      : { label: 'Typ', value: 'Persistence' },
+                  ]}
+                  savings={`€ ${b29Data.savings.per_day_eur.toFixed(0)}/Tag · 25 Fahrzeuge`}
+                  tableHead={['Cluster', 'Preis', 'Opt. Zeitpunkt']}
+                  tableRows={b29Data.recommendations.map((r) => ({
+                    label: r.cluster,
+                    price: r.current_price,
+                    sub:   r.optimal_time_label,
+                  }))}
+                  linkTo="/predictions"
+                  parquetLast={b29Data.parquet_last}
+                  inferenceError={b29Data.inference_error}
+                  dataSource={b29Data.data_source}
+                />
+              )}
+            </div>
           </div>
         )}
 
-        {/* Price cards */}
+        {/* Price cards — active fuel type highlighted */}
         <div className="grid grid-cols-3 gap-4">
           {['e5', 'e10', 'diesel'].map((ft) => (
             <PriceCard
@@ -227,12 +276,13 @@ export default function Dashboard() {
               fuelType={ft}
               price={currentPrices[ft]}
               change={currentPrices[ft] && prevPrices[ft] ? currentPrices[ft] - prevPrices[ft] : 0}
+              isActive={fuelType === ft}
             />
           ))}
         </div>
 
-        {/* Best time */}
-        <BestTimeCard data={bestTime} />
+        {/* Best time (fuel-type aware) */}
+        <BestTimeCard data={bestTime} fuelType={fuelType} />
 
         {/* Price trend chart */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -240,22 +290,25 @@ export default function Dashboard() {
             <h2 className="text-sm font-semibold text-gray-700">Preisentwicklung (30 Tage)</h2>
             <div className="flex gap-4">
               {chartDatasets.map(({ fuelType: ft }) => (
-                <span key={ft} className="flex items-center gap-1.5 text-xs text-gray-500">
-                  <span
-                    className="inline-block w-3 h-3 rounded-full"
-                    style={{ background: FUEL_COLORS[ft] }}
-                  />
+                <span
+                  key={ft}
+                  className={`flex items-center gap-1.5 text-xs transition-opacity ${
+                    fuelType === ft ? 'opacity-100 font-semibold' : 'opacity-50'
+                  }`}
+                  style={{ color: FUEL_COLORS[ft] }}
+                >
+                  <span className="inline-block w-3 h-3 rounded-full" style={{ background: FUEL_COLORS[ft] }} />
                   {FUEL_LABELS[ft]}
                 </span>
               ))}
             </div>
           </div>
-          {loading ? (
+          {loading && chartDatasets.length === 0 ? (
             <div className="h-[280px] flex items-center justify-center text-gray-400 text-sm">
               Lade Daten…
             </div>
           ) : (
-            <PriceLineChart datasets={chartDatasets} />
+            <PriceLineChart datasets={chartDatasets} activeFuelType={fuelType} />
           )}
         </div>
 
@@ -287,7 +340,7 @@ export default function Dashboard() {
                     {['e5', 'e10', 'diesel'].map((ft) => (
                       <td key={ft} className="text-right py-2.5">
                         <span
-                          className="font-mono font-medium"
+                          className={`font-mono font-medium ${fuelType === ft ? 'text-base' : ''}`}
                           style={{ color: FUEL_COLORS[ft] }}
                         >
                           {s[ft] ? s[ft].toFixed(3) : '–'}

@@ -57,12 +57,22 @@ function SpeditionTab({ data }) {
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm font-semibold text-blue-900">{data.model.name}</span>
           <span className="text-xs text-blue-600 font-mono">{data.model.architecture}</span>
+          <span className="text-xs bg-amber-100 text-amber-800 rounded-full px-2.5 py-0.5 font-semibold">Diesel</span>
           <MetricChip label="MAE" value={`${data.model.mae.toFixed(4)} €/L`} />
           <MetricChip label="R²" value={data.model.r2.toFixed(3)} />
           <MetricChip label="Pick-Acc t+1h" value={`${(data.model.pick_accuracy_t1 * 100).toFixed(0)} %`} />
           <MetricChip label="Zufallsbasis" value={`${(data.model.baseline_pick_accuracy * 100).toFixed(0)} %`} />
           <SavingsBadge text={`€ ${data.savings.per_day_eur.toFixed(0)}/Tag · ${data.savings.trucks} Fahrzeuge`} />
         </div>
+        {(data.parquet_last || data.inference_error) && (
+          <p className="text-xs text-blue-600 mt-2 opacity-75">
+            {data.parquet_last && `Datenstand: ${data.parquet_last.slice(0, 10)}`}
+            {data.live_prices_used && ' · Live-Preise eingebunden'}
+            {data.inference_error && (
+              <span className="text-amber-700"> · Fallback: {data.inference_error.slice(0, 60)}</span>
+            )}
+          </p>
+        )}
       </div>
 
       {/* Dispatch recommendation table */}
@@ -166,17 +176,33 @@ function B29Tab({ data, numTrucks, tankSize, onTrucksChange, onTankSizeChange })
 
   return (
     <div className="space-y-6">
+      {!data.model_available && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+          Kein trainiertes Modell gefunden (<code>data/models/b29_mlp.joblib</code>).
+          Prognose basiert auf saisonaler Naive-Methode (Preise vor 7 Tagen).
+          Notebook <strong>b29_fleet_mlp.ipynb</strong> ausführen, um das Modell zu erzeugen.
+        </div>
+      )}
       {/* Metrics banner */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4">
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm font-semibold text-blue-900">{data.model.name}</span>
           <span className="text-xs text-blue-600 font-mono">{data.model.architecture}</span>
-          <MetricChip label="MAE" value={`${data.model.mae.toFixed(3)} €/L`} />
-          <MetricChip label="R²" value={data.model.r2.toFixed(2)} />
-          <MetricChip label="Verbesserung" value={`−${data.model.mae_improvement_pct.toFixed(0)} % vs Baseline`} />
+          <span className="text-xs bg-amber-100 text-amber-800 rounded-full px-2.5 py-0.5 font-semibold">Diesel</span>
+          {data.model.mae != null && <MetricChip label="MAE" value={`${data.model.mae.toFixed(3)} €/L`} />}
+          {data.model.r2 != null && <MetricChip label="R²" value={data.model.r2.toFixed(2)} />}
+          {data.model.mae_improvement_pct != null && <MetricChip label="Verbesserung" value={`−${data.model.mae_improvement_pct.toFixed(0)} % vs Baseline`} />}
           <SavingsBadge text={`€ ${data.savings.per_day_eur.toFixed(2)}/Tag · ${data.savings.trucks} Fahrzeuge`} />
           <SavingsBadge text={`€ ${data.savings.per_year_eur.toLocaleString('de-DE')}/Jahr`} />
         </div>
+        {(data.parquet_last || data.inference_error) && (
+          <p className="text-xs text-blue-600 mt-2 opacity-75">
+            {data.parquet_last && `Datenstand: ${data.parquet_last.slice(0, 10)}`}
+            {data.inference_error && (
+              <span className="text-amber-700"> · Fallback: {data.inference_error.slice(0, 60)}</span>
+            )}
+          </p>
+        )}
       </div>
 
       {/* Cluster recommendation table */}

@@ -26,11 +26,14 @@ async def get_geo_timeseries(
     date: Optional[str] = Query(None, description="YYYY-MM-DD, defaults to today"),
     interval: str = Query("hour", pattern="^(hour|day)$"),
     region: str = Query("bw", pattern="^(bw|all)$"),
+    scenario: str = Query("all", pattern="^(all|spedition|b29|germany)$"),
 ):
     """
     Geo-temporal timeseries for the 3D map visualisation.
 
-    Returns one price array per station for the requested date and interval,
-    ready to be consumed by the deck.gl ColumnLayer in the frontend.
+    scenario="all"       — All 15k German stations (estimated prices from parquet)
+    scenario="spedition" — 5 Spedition route stations with MLP-predicted 24h prices
+    scenario="b29"       — 4 B29 cluster centroids with MLP-predicted 24h prices
+    scenario="germany"   — National grid model (falls back to "all" if not trained yet)
     """
-    return await service.get_geo_timeseries(fuel_type, date, interval, region)
+    return await service.get_geo_timeseries(fuel_type, date, interval, region, scenario)

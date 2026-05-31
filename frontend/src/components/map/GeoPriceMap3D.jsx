@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import DeckGL from '@deck.gl/react'
-import { ColumnLayer, ScatterplotLayer } from '@deck.gl/layers'
+import { ColumnLayer, ScatterplotLayer, PathLayer, TextLayer } from '@deck.gl/layers'
 import Map from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
@@ -28,7 +28,25 @@ function priceToColor(price, min, max, alpha = 200) {
   }
 }
 
-export default function GeoPriceMap3D({ data, fuelType = 'diesel', loading = false }) {
+// Aalen origin for Spedition route arrows
+const AALEN = [10.0931, 48.8375]
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return [r, g, b]
+}
+
+// Scenario-specific column radius
+const COLUMN_RADIUS = {
+  all:       400,
+  spedition: 1500,
+  b29:       6000,
+  germany:   25000,
+}
+
+export default function GeoPriceMap3D({ data, fuelType = 'diesel', loading = false, scenario = 'all' }) {
   const [hourIndex, setHourIndex]     = useState(12)   // currently selected time slice
   const [playing, setPlaying]         = useState(false)
   const [mode, setMode]               = useState('3d')  // '3d' | '2d'
@@ -76,34 +94,73 @@ export default function GeoPriceMap3D({ data, fuelType = 'diesel', loading = fal
     return priceToColor(val, lo, hi, 200)
   }
 
+  const colRadius = COLUMN_RADIUS[scenario] ?? 600
+
+  // Spedition: route arrows from Aalen to each station
+  const routeArrows = scenario === 'spedition' && stations.length > 0
+    ? stations.map(s => ({
+        path: [AALEN, s.position],
+        name: s.name,
+        color: s.color ? hexToRgb(s.color) : [99, 102, 241],
+      }))
+    : []
+
   // deck.gl layers
-  const layers = mode === '3d'
-    ? [
-        new ColumnLayer({
-          id: 'price-columns',
-          data: stations,
-          getPosition: s => s.position,
-          getElevation: s => Math.max(0, (s.price - priceMin) * 80_000),
-          getFillColor: s => getColor(s),
-          radius: 600,
-          elevationScale: 1,
-          pickable: true,
-          autoHighlight: true,
-          highlightColor: [255, 255, 255, 80],
-          onHover: info => setHoverInfo(info.object ? info : null),
-        }),
-      ]
-    : [
-        new ScatterplotLayer({
-          id: 'price-dots',
-          data: stations,
-          getPosition: s => s.position,
-          getRadius: 800,
-          getFillColor: s => getColor(s),
-          pickable: true,
-          onHover: info => setHoverInfo(info.object ? info : null),
-        }),
-      ]
+  const columnLayer = new ColumnLayer({
+    id: 'price-columns',
+    data: stations,
+    getPosition: s => s.position,
+    getElevation: s => Math.max(0, (s.price - priceMin) * 80_000),
+    getFillColor: s => getColor(s),
+    radius: colRadius,
+    elevationScale: 1,
+    pickable: true,
+    autoHighlight: true,
+    highlightColor: [255, 255, 255, 80],
+    onHover: info => setHoverInfo(info.object ? info : null),
+  })
+
+  const scatterLayer = new ScatterplotLayer({
+    id: 'price-dots',
+    data: stations,
+    getPosition: s => s.position,
+    getRadius: colRadius * 1.3,
+    getFillColor: s => getColor(s),
+    pickable: true,
+    onHover: info => setHoverInfo(info.object ? info : null),
+  })
+
+  const pathLayer = routeArrows.length > 0
+    ? new PathLayer({
+        id: 'route-arrows',
+        data: routeArrows,
+        getPath: d => d.path,
+        getColor: d => [...d.color, 160],
+        getWidth: 3000,
+        widthUnits: 'meters',
+        pickable: false,
+      })
+    : null
+
+  const labelLayer = (scenario === 'b29' || scenario === 'spedition') && stations.length > 0
+    ? new TextLayer({
+        id: 'station-labels',
+        data: stations,
+        getPosition: s => s.position,
+        getText: s => s.name,
+        getSize: scenario === 'b29' ? 18 : 14,
+        getColor: [255, 255, 255, 220],
+        getPixelOffset: [0, -20],
+        fontWeight: 'bold',
+        pickable: false,
+      })
+    : null
+
+  const layers = [
+    mode === '3d' ? columnLayer : scatterLayer,
+    pathLayer,
+    labelLayer,
+  ].filter(Boolean)
 
   const currentTimestamp = data?.stations?.[0]?.prices?.[hourIndex]?.timestamp ?? ''
   const formattedTime = currentTimestamp
@@ -218,7 +275,8 @@ export default function GeoPriceMap3D({ data, fuelType = 'diesel', loading = fal
         {/* Stats */}
         {stations.length > 0 && (
           <div className="text-xs text-gray-400 space-y-0.5 border-t border-gray-700 pt-2">
-            <div>Stationen: <span className="text-white">{stations.length}</span></div>
+            <div>Szenario: <span className="text-indigo-400 uppercase">{scenario}</span></div>
+            <div>Stationen: <span className="text-white">{stations.length.toLocaleString('de-DE')}</span></div>
             <div>Ø Preis: <span className="text-white">{priceMean.toFixed(3)} €/L</span></div>
             <div>Spread: <span className="text-amber-400">{((priceMax - priceMin) * 100).toFixed(1)} ct/L</span></div>
           </div>

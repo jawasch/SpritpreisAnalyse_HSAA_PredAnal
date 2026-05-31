@@ -1,7 +1,12 @@
-from fastapi import APIRouter, Query
+import logging
+import traceback
+
+from fastapi import APIRouter, HTTPException, Query
+
 from ..services.tankerkoenig import service
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/short-term")
@@ -14,9 +19,23 @@ async def get_short_term_predictions(
 
 @router.get("/spedition")
 async def get_spedition_predictions():
-    return await service.get_spedition_predictions()
+    try:
+        return await service.get_spedition_predictions()
+    except Exception as exc:
+        logger.error("Spedition inference failed:\n%s", traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"ML inference error: {exc}. Check backend logs.",
+        )
 
 
 @router.get("/b29")
 async def get_b29_predictions():
-    return await service.get_b29_predictions()
+    try:
+        return await service.get_b29_predictions()
+    except Exception as exc:
+        logger.error("B29 inference failed:\n%s", traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"ML inference error: {exc}. Check backend logs.",
+        )

@@ -32,9 +32,9 @@ export const api = {
       client.get('/api/v1/analytics/heatmap', { params: { fuel_type: fuelType } }),
     bestTime: (fuelType = 'e5') =>
       client.get('/api/v1/analytics/best-time', { params: { fuel_type: fuelType } }),
-    geoTimeseries: (fuelType = 'diesel', date = null, interval = 'hour', region = 'bw') =>
+    geoTimeseries: (fuelType = 'diesel', date = null, interval = 'hour', region = 'bw', scenario = 'all') =>
       client.get('/api/v1/analytics/geo/timeseries', {
-        params: { fuel_type: fuelType, ...(date && { date }), interval, region },
+        params: { fuel_type: fuelType, ...(date && { date }), interval, region, scenario },
       }),
   },
 
