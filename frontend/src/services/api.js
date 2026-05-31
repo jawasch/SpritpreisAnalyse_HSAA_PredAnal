@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '',
-  timeout: 10000,
+  timeout: 30000,
 })
 
 client.interceptors.response.use(
@@ -10,7 +10,6 @@ client.interceptors.response.use(
   (err) => Promise.reject(err.response?.data?.detail || err.message)
 )
 
-// Default location: Aalen (HS Aalen project area)
 export const DEFAULT_LAT = 48.8375
 export const DEFAULT_LNG = 10.0931
 
@@ -36,6 +35,10 @@ export const api = {
       client.get('/api/v1/analytics/geo/timeseries', {
         params: { fuel_type: fuelType, ...(date && { date }), interval, region, scenario },
       }),
+    modelField: (fuelType = 'diesel', horizon = 72) =>
+      client.get('/api/v1/analytics/geo/timeseries', {
+        params: { fuel_type: fuelType, scenario: 'germany', interval: 'hour' },
+      }),
   },
 
   predictions: {
@@ -48,6 +51,31 @@ export const api = {
   notebooks: {
     list: () => client.get('/api/v1/notebooks'),
     html: (name) => client.get(`/api/v1/notebooks/${encodeURIComponent(name)}/html`),
+  },
+
+  eda: {
+    summary: () => client.get('/api/v1/eda/summary'),
+  },
+
+  oil: {
+    history: (days = 365) => client.get('/api/v1/oil/history', { params: { days } }),
+  },
+
+  models: {
+    list: () => client.get('/api/v1/models'),
+    get: (id) => client.get(`/api/v1/models/${id}`),
+  },
+
+  setup: {
+    status: () => client.get('/api/v1/setup/status'),
+    runAll: () => client.post('/api/v1/setup/run-all'),
+    run: (id) => client.post(`/api/v1/setup/run/${id}`),
+  },
+
+  allStations: {
+    prices: (fuelType = 'diesel', days = 7) =>
+      client.get('/api/v1/prices/all-stations', { params: { fuel_type: fuelType, days } }),
+    available: () => client.get('/api/v1/prices/all-stations/available'),
   },
 }
 

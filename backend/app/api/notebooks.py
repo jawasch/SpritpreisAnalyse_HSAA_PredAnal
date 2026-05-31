@@ -5,26 +5,39 @@ Notebooks are mounted read-only at /app/notebooks via docker-compose.yml.
 nbconvert is available as a transitive dependency of jupyter==1.0.0.
 """
 
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
 
-NOTEBOOKS_DIR = Path("/app/notebooks")
+NOTEBOOKS_DIR = Path(os.getenv("NOTEBOOKS_DIR", "/app/notebooks"))
 
 # Scratch/work-in-progress notebooks excluded from the public list
 _EXCLUDED = {"Scribble.ipynb"}
 
 # Human-readable display names
 _DISPLAY_NAMES = {
-    "spedition_mlp.ipynb":               "Spedition MLP (5 Stationen)",
-    "b29_fleet_mlp.ipynb":               "B29 Flotten-MLP",
-    "spritpreis_mlp.ipynb":              "Nationales MLP (Baseline)",
+    "data-exploration.ipynb":             "01 · Datenexploration",
+    "b29_fleet_mlp.ipynb":                "02 · B29 Fleet MLP (4 Cluster)",
+    "spedition_mlp.ipynb":                "03 · Spedition MLP (5 Stationen) ★",
+    "all_stations_geo_mlp.ipynb":         "04 · Geo-MLP (alle BW-Stationen)",
+    "all_germany_web_mlp.ipynb":          "05 · All-Germany Web MLP",
+    "spritpreis_mlp.ipynb":               "Nationales MLP (Baseline)",
     "spritpreis_b29_mlp_bereinigt.ipynb": "B29 MLP (bereinigt)",
-    "all_stations_geo_mlp.ipynb":        "Geo-MLP (alle BW-Stationen)",
-    "data-exploration.ipynb":            "Datenexploration",
 }
+
+# Desired sort order for curated notebooks
+_SORT_ORDER = [
+    "data-exploration.ipynb",
+    "b29_fleet_mlp.ipynb",
+    "spedition_mlp.ipynb",
+    "all_stations_geo_mlp.ipynb",
+    "all_germany_web_mlp.ipynb",
+    "spritpreis_mlp.ipynb",
+    "spritpreis_b29_mlp_bereinigt.ipynb",
+]
 
 
 def _notebook_meta(path: Path) -> dict:
@@ -55,12 +68,13 @@ async def list_notebooks():
     if not NOTEBOOKS_DIR.exists():
         return {"notebooks": []}
 
-    notebooks = []
-    for path in sorted(NOTEBOOKS_DIR.glob("*.ipynb")):
-        if path.name in _EXCLUDED:
-            continue
-        notebooks.append(_notebook_meta(path))
+    all_paths = {p.name: p for p in NOTEBOOKS_DIR.glob("*.ipynb") if p.name not in _EXCLUDED}
 
+    # Sort by curated order, then alphabetically for the rest
+    ordered_names = [n for n in _SORT_ORDER if n in all_paths]
+    remaining     = sorted(n for n in all_paths if n not in _SORT_ORDER)
+
+    notebooks = [_notebook_meta(all_paths[n]) for n in ordered_names + remaining]
     return {"notebooks": notebooks}
 
 

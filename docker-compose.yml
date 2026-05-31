@@ -1,23 +1,5 @@
 services:
-  # PostgreSQL Database
-  db:
-    image: postgres:14-alpine
-    container_name: spritpreis_db
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-spritpreis}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-spritpreis123}
-      POSTGRES_DB: ${POSTGRES_DB:-spritpreis_analytics}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spritpreis}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Backend API
+  # Backend API — serves from joblib models + parquet files (no database needed)
   backend:
     build:
       context: ./backend
@@ -26,7 +8,6 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-spritpreis}:${POSTGRES_PASSWORD:-spritpreis123}@db:5432/${POSTGRES_DB:-spritpreis_analytics}
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
     ports:
@@ -35,9 +16,8 @@ services:
       - ./backend:/app
       - ./data:/app/data
       - ./notebooks:/app/notebooks:ro
-    depends_on:
-      db:
-        condition: service_healthy
+      - ./scripts:/app/scripts:ro
+      - ../../tankerkoenig-data:/app/data/tankerkoenig-data:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
 
   # Frontend
@@ -58,20 +38,5 @@ services:
       - backend
     command: npm run dev -- --host
 
-  # pgAdmin (optional, for database management)
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: spritpreis_pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@spritpreis.local}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
-    ports:
-      - "5050:80"
-    depends_on:
-      - db
-    profiles:
-      - dev
-
 volumes:
-  postgres_data:
   frontend_node_modules:

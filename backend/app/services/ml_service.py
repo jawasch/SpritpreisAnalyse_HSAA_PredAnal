@@ -19,9 +19,11 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
-MODELS_DIR    = Path("/app/data/models")
-PROCESSED_DIR = Path("/app/data/processed")
+# ── Paths (configurable via DATA_DIR env var for local dev vs Docker) ──────────
+import os as _os
+DATA_DIR      = Path(_os.getenv("DATA_DIR", "/app/data"))
+MODELS_DIR    = DATA_DIR / "models"
+PROCESSED_DIR = DATA_DIR / "processed"
 
 SPEDITION_MODEL   = MODELS_DIR    / "spedition_mlp.joblib"
 B29_MODEL         = MODELS_DIR    / "b29_mlp.joblib"
@@ -200,6 +202,9 @@ def _build_features(df_hourly: pd.DataFrame, fuel_type: str = "diesel") -> pd.Da
 
 # ── MLService ──────────────────────────────────────────────────────────────────
 
+RECENT_PRICES_TEMPLATE = PROCESSED_DIR / "recent_prices_{fuel_type}_7d.parquet"
+
+
 class MLService:
     def __init__(self) -> None:
         self._sp_artifact: dict | None = None
@@ -208,6 +213,7 @@ class MLService:
         self._b29_df: pd.DataFrame | None = None
         self._geo_df: pd.DataFrame | None = None   # stations_geo.parquet cache
         self._ag_df: pd.DataFrame | None = None    # combined all-germany parquet cache
+        self._recent_prices: dict[str, pd.DataFrame] = {}  # fuel_type → recent_prices df
 
     # ── Loaders ────────────────────────────────────────────────────────────────
 
@@ -232,6 +238,19 @@ class MLService:
             self._geo_df = pd.read_parquet(STATIONS_GEO)
             logger.info("[ml_service] stations_geo loaded, shape=%s", self._geo_df.shape)
         return self._geo_df
+
+    def _load_recent_prices(self, fuel_type: str = "diesel") -> pd.DataFrame | None:
+        """Load recent real prices for all stations (built by build_recent_prices.py)."""
+        if fuel_type not in self._recent_prices:
+            path = Path(str(RECENT_PRICES_TEMPLATE).replace("{fuel_type}", fuel_type))
+            if path.exists():
+                logger.info("[ml_service] Loading recent_prices_%s_7d.parquet …", fuel_type)
+                df = pd.read_parquet(path)
+                self._recent_prices[fuel_type] = df
+                logger.info("[ml_service] recent_prices loaded: %d stations", len(df))
+            else:
+                self._recent_prices[fuel_type] = None
+        return self._recent_prices.get(fuel_type)
 
     def _load_b29(self) -> tuple[dict | None, pd.DataFrame]:
         if self._b29_df is None:
@@ -708,40 +727,54 @@ class MLService:
             # Model not trained yet — fall through to "all" stations with notice
             logger.info("[ml_service] germany model not available, falling back to 'all' scenario.")
 
-        # ── All stations — estimate prices from parquet + brand offset ───────
+        # ── All stations ─────────────────────────────────────────────────────
         geo_df = self._load_stations_geo()
-        _, b29_df = self._load_b29()
+        recent_df = self._load_recent_prices(fuel_type)  # real data if available
 
+        _, b29_df = self._load_b29()
         ratio = _FUEL_RATIO.get(fuel_type, 1.0)
-        # Regional base price: recent daily mean of B29 parquet × fuel ratio
         base_national = float(b29_df.mean(axis=1).iloc[-24:].mean()) * ratio
 
-        # Pre-compute current weekday for weekday offset
         current_weekday = now_utc.weekday()
         wd_off = _WEEKDAY_OFFSETS[current_weekday]
 
+        using_real = recent_df is not None
         stations_out = []
+
         for _, row in geo_df.iterrows():
+            uuid  = str(row["uuid"])
             brand = str(row.get("brand", ""))
-            b_off = _brand_offset(brand)
 
-            # Deterministic station seed from UUID hash (same as mock_data._station_seed)
-            h = int(hashlib.md5(f"{row['uuid']}-{fuel_type}".encode()).hexdigest()[:6], 16)
-            seed = (h % 81 - 40) / 1000.0
-
-            base = round(base_national + b_off + seed + wd_off, 4)
-
-            prices_list = [
-                {
-                    "timestamp": (datetime(ref_date.year, ref_date.month, ref_date.day,
-                                           hour, 0, 0, tzinfo=timezone.utc)).isoformat(),
-                    "price":     round(max(1.0, base + _HOUR_OFFSETS[hour]), 3),
-                }
-                for hour in range(24)
-            ]
+            if using_real and uuid in recent_df.index:
+                # Use real hourly prices from recent_prices parquet
+                rp = recent_df.loc[uuid]
+                prices_list = [
+                    {
+                        "timestamp": (datetime(ref_date.year, ref_date.month, ref_date.day,
+                                               hour, 0, 0, tzinfo=timezone.utc)).isoformat(),
+                        "price": round(max(1.0, float(rp.get(f"h{hour:02d}",
+                                                             rp[[f"h{h:02d}" for h in range(24)
+                                                                 if f"h{h:02d}" in rp]].mean()))), 3),
+                    }
+                    for hour in range(24)
+                ]
+            else:
+                # Fallback: estimate from brand/seed/hour offsets
+                b_off = _brand_offset(brand)
+                h = int(hashlib.md5(f"{uuid}-{fuel_type}".encode()).hexdigest()[:6], 16)
+                seed = (h % 81 - 40) / 1000.0
+                base = round(base_national + b_off + seed + wd_off, 4)
+                prices_list = [
+                    {
+                        "timestamp": (datetime(ref_date.year, ref_date.month, ref_date.day,
+                                               hour, 0, 0, tzinfo=timezone.utc)).isoformat(),
+                        "price": round(max(1.0, base + _HOUR_OFFSETS[hour]), 3),
+                    }
+                    for hour in range(24)
+                ]
 
             stations_out.append({
-                "id":     str(row["uuid"]),
+                "id":     uuid,
                 "name":   str(row.get("name", "")),
                 "brand":  brand,
                 "lat":    float(row["latitude"]),
@@ -753,13 +786,15 @@ class MLService:
             "ok": True,
             "stations": stations_out,
             "meta": {
-                "fuel_type":  fuel_type,
-                "date":       str(ref_date),
-                "interval":   "hour",
-                "n_stations": len(stations_out),
-                "scenario":   scenario,
-                "data_source": "stations_geo.parquet + b29_parquet_estimate",
-                "base_price": round(base_national, 3),
+                "fuel_type":   fuel_type,
+                "date":        str(ref_date),
+                "interval":    "hour",
+                "n_stations":  len(stations_out),
+                "scenario":    scenario,
+                "data_source": "recent_prices_7d.parquet (echte Daten)" if using_real
+                               else "stations_geo.parquet + b29_parquet_estimate",
+                "real_data":   using_real,
+                "base_price":  round(base_national, 3),
             },
         }
 
