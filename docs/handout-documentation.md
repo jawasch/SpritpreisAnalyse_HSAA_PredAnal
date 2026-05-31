@@ -53,7 +53,7 @@
 
 ### Rolle im Unternehmen
 
-Ein Speditionsunternehmen betreibt fünf LKWs auf fünf Festrouten, die jeweils rund 100 km von Aalen entfernt starten. Die Disposition verantwortet die Kraftstoffkosten als einen der größten variablen Kostenpositionen im Betrieb.
+Ein Speditionsunternehmen betreibt 25 LKWs auf fünf Festrouten, die jeweils rund 100 km von Aalen entfernt starten. Die Disposition verantwortet die Kraftstoffkosten als einen der größten variablen Kostenpositionen im Betrieb.
 
 **Relevante Kennzahlen:**
 
@@ -97,6 +97,7 @@ Das Problem ist eine **Zeitreihen-Regression**: Aus historischen Preis- und Zeit
 | Kriterium | Ziel |
 |---|---|
 | **Cheapest-Station Pick Accuracy** | Wie oft wird die tatsächlich günstigste Station korrekt identifiziert? Zufalls-Baseline: **20 %** (1 von 5) |
+| **Spearman-Rangkorrelation** |  Misst, wie gut zwei Rangreihen (alle Staionen) übereinstimmen |
 | **MAE (Mean Absolute Error)** | Mittlere Preisabweichung in €/L — möglichst klein |
 | **R²** | Anteil der erklärten Preisvarianz — möglichst nah an 1 |
 
@@ -109,7 +110,7 @@ Das Problem ist eine **Zeitreihen-Regression**: Aus historischen Preis- und Zeit
 Die Datenbasis stammt aus dem **Tankerkönig Open Data**-Projekt: tägliche CSV-Dateien mit den Preisänderungen aller deutschen Tankstellen seit 2014. Der Gesamtdatensatz umfasst:
 
 - **~87 GB** historische CSV-Dateien 
-- **1,1 Milliarden** Preiseinträge über 4.365 Tage (2014 – 2026)
+- **1,1 Milliarden** Preiseinträge über **4.365 Tage (2014 – 2026)**
 - **> 15.000 Tankstellen** deutschlandweit
 
 #### Datenstruktur Tankerkönig
@@ -247,7 +248,7 @@ Pro Zeitschritt und Station werden folgende Merkmale berechnet. Somit ergeben si
 
 Alle Features werden mit dem **StandardScaler** auf Mittelwert 0 und Standardabweichung 1 normiert — damit kein Merkmal allein durch seine Größenordnung das Training dominiert. Kritisch: Der Scaler wird **ausschließlich auf den Trainingsdaten** angepasst (`fit`) und dann auf Validierung und Test nur angewendet (`transform`). Würde man den Scaler auf allen Daten anpassen, flössen Zukunftsinformationen ins Training und es würde zum **Datenleck** kommen.
 
-### Zielvariable
+### Ziel-Features
 
 Pro Zeitschritt sagt das Modell gleichzeitig **5 Stationen × 72 Zeithorizonte = 360 Ausgabewerte** vorher (Multi-Output-Regression). Das Ziel-DataFrame `y` hat also 360 Spalten.
 
@@ -432,15 +433,15 @@ Der CV-Lauf nutzt dieselbe Architektur `(32,)` wie das finale Modell — die CV-
 
 **MAE (Mean Absolute Error) — Wie weit daneben im Schnitt?**
 
-> Stell dir vor, du tippst jeden Tag den Dieselpreis. Der MAE sagt dir: „Im Durchschnitt liegst du X Cent pro Liter daneben." Kleiner ist besser. 0 wäre perfekt — kommt in der Praxis nicht vor.
+Stell dir vor, du tippst jeden Tag den Dieselpreis. Der MAE sagt dir: „Im Durchschnitt liegst du X Cent pro Liter daneben." Kleiner ist besser. 0 wäre perfekt — kommt in der Praxis nicht vor.
 
 **RMSE (Root Mean Squared Error) — Wie schlimm sind die größten Fehler?**
 
-> Wie der MAE, aber besonders große Fehlvorhersagen werden doppelt bestraft — wie ein Lehrer, der grobe Fehler stärker bewertet als kleine. Ein RMSE deutlich größer als der MAE zeigt: es gibt einzelne Stunden mit besonders starken Abweichungen.
+Wie der MAE, aber besonders große Fehlvorhersagen werden doppelt bestraft — wie ein Lehrer, der grobe Fehler stärker bewertet als kleine. Ein RMSE deutlich größer als der MAE zeigt: es gibt einzelne Stunden mit besonders starken Abweichungen.
 
 **R² (Bestimmtheitsmaß) — Wie viel der Preisschwankungen erklärt das Modell?**
 
-> 0,0 = das Modell ist so gut wie pures Raten. 1,0 = das Modell erklärt alle Preisbewegungen perfekt. Werte nahe 1 zeigen: das Modell hat Muster wirklich verstanden, nicht nur auswendig gelernt.
+0,0 = das Modell ist so gut wie pures Raten. 1,0 = das Modell erklärt alle Preisbewegungen perfekt. Werte nahe 1 zeigen: das Modell hat Muster wirklich verstanden, nicht nur auswendig gelernt.
 
 **Cheapest-Station Pick Accuracy — Trifft das Modell die richtige Station?**
 
@@ -569,6 +570,8 @@ Das fertig trainierte Modell, beide Scaler und die Spalteninformationen werden a
 ### Mögliche Erweiterung: Dashboard
 
 Mittels **React** ließe sich die Dispatch-Empfehlung als interaktives Dashboard aufbauen: Disponent wählt den Horizont, das Modell zeigt Rangfolge und Preise — direkt im Browser, ohne Python-Kenntnisse.
+
+Eine automatisierte Abfrage von Nachrichtentickern und der mögliche Einfluss dieser Ereignisse auf den Ölpreis und dadurch auf den Kraftstoffpreis wäre ein weiterer denkbarer Schritt. 
 
 ---
 
