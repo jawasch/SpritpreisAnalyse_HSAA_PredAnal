@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
+import PixelPattern from '../components/ui/PixelPattern'
 
 const STATUS_META = {
-  ok:                { icon: '✅', color: 'text-green-600', bg: 'bg-green-50',  label: 'Vorhanden'         },
-  missing:           { icon: '○',  color: 'text-gray-400',  bg: 'bg-gray-50',   label: 'Fehlt'             },
-  running:           { icon: '⟳',  color: 'text-blue-600',  bg: 'bg-blue-50',   label: 'Wird erstellt…'    },
-  pending:           { icon: '○',  color: 'text-gray-300',  bg: 'bg-gray-50',   label: 'Wartend'           },
-  done:              { icon: '✅', color: 'text-green-600', bg: 'bg-green-50',  label: 'Fertig'            },
-  error:             { icon: '❌', color: 'text-red-600',   bg: 'bg-red-50',    label: 'Fehler'            },
-  notebook_required: { icon: '⚠️', color: 'text-amber-600', bg: 'bg-amber-50',  label: 'Notebook nötig'    },
-  data_missing:      { icon: '📂', color: 'text-orange-600', bg: 'bg-orange-50', label: 'Rohdaten fehlen'  },
+  ok:                { icon: '✅', color: 'text-green-600',       bg: 'bg-green-50 border-green-200',         label: 'Vorhanden'      },
+  missing:           { icon: '○',  color: 'text-brand-charcoal/40', bg: 'bg-white border-brand-charcoal/15',   label: 'Fehlt'          },
+  running:           { icon: '⟳',  color: 'text-brand-cyan',       bg: 'bg-brand-cyan/10 border-brand-cyan/40',label: 'Wird erstellt…' },
+  pending:           { icon: '○',  color: 'text-brand-charcoal/20', bg: 'bg-white border-brand-charcoal/10',   label: 'Wartend'        },
+  done:              { icon: '✅', color: 'text-green-600',       bg: 'bg-green-50 border-green-200',         label: 'Fertig'         },
+  error:             { icon: '❌', color: 'text-red-600',         bg: 'bg-red-50 border-red-200',             label: 'Fehler'         },
+  notebook_required: { icon: '⚠️', color: 'text-brand-yellow',    bg: 'bg-brand-yellow/20 border-brand-yellow/50', label: 'Notebook nötig' },
+  data_missing:      { icon: '📂', color: 'text-brand-orange',    bg: 'bg-brand-orange/10 border-brand-orange/30', label: 'Rohdaten fehlen'},
 }
 
 function ComponentRow({ comp, runStatus }) {
@@ -18,8 +19,8 @@ function ComponentRow({ comp, runStatus }) {
   const isRunning = status === 'running'
 
   return (
-    <div className={`rounded-lg border p-3 transition-all ${meta.bg} ${
-      isRunning ? 'border-blue-300 ring-1 ring-blue-200' : 'border-gray-200'
+    <div className={`border p-3 transition-all ${meta.bg} ${
+      isRunning ? 'ring-1 ring-brand-cyan/40' : ''
     }`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -50,14 +51,14 @@ function ComponentRow({ comp, runStatus }) {
       {/* Progress bar when running */}
       {isRunning && live && (
         <div className="mt-2">
-          <div className="h-1.5 bg-blue-100 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-brand-cyan/20 overflow-hidden">
             <div
-              className="h-full bg-blue-500 rounded-full transition-all duration-300"
+              className="h-full bg-brand-cyan transition-all duration-300"
               style={{ width: `${live.progress ?? 0}%` }}
             />
           </div>
           {live.message && (
-            <p className="text-[10px] text-blue-600 mt-1 truncate">{live.message}</p>
+            <p className="text-[10px] text-brand-charcoal/60 mt-1 truncate font-mono">{live.message}</p>
           )}
         </div>
       )}
@@ -150,34 +151,36 @@ export default function Setup({ onDone }) {
   const dataMissingCount = components.filter(c => c.status === 'data_missing').length
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-charcoal/85 backdrop-blur-sm p-4">
+      <div className="bg-brand-cream shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
 
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-200 shrink-0">
-          <div className="flex items-center gap-3 mb-1">
-            <span className="text-2xl">🔧</span>
-            <h1 className="text-xl font-bold text-gray-900">Spritpreis Analytics — Setup</h1>
+        <div className="relative overflow-hidden bg-brand-charcoal px-6 py-5 shrink-0">
+          <PixelPattern color1="rgba(255,255,255,0.07)" color2="transparent" size={28} steps={4}
+            className="absolute top-0 right-0" />
+          <div className="flex items-center gap-3 mb-1 relative z-10">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-white/30">Setup · Spritpreis Analytics</span>
           </div>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-white uppercase leading-none relative z-10">Daten-Setup</h1>
+          <p className="text-xs text-white/50 mt-1.5 relative z-10">
             Prüft und erstellt fehlende Daten, Parquets und Modell-Artefakte.
             Notebooks müssen weiterhin manuell ausgeführt werden.
           </p>
           {!loading && (
-            <div className="mt-2 flex gap-3 text-xs flex-wrap">
-              <span className="text-green-600 font-medium">
+            <div className="mt-3 flex gap-3 text-xs flex-wrap relative z-10">
+              <span className="text-green-400 font-medium">
                 ✅ {components.filter(c => c.status === 'ok').length} vorhanden
               </span>
               {scriptableCount > 0 && (
-                <span className="text-blue-600 font-medium">
+                <span className="text-brand-cyan font-medium">
                   ○ {scriptableCount} buildbar
                 </span>
               )}
-              <span className="text-amber-600 font-medium">
+              <span className="text-brand-yellow font-medium">
                 ⚠️ {components.filter(c => c.status === 'notebook_required').length} brauchen Notebook
               </span>
               {dataMissingCount > 0 && (
-                <span className="text-orange-600 font-medium">
+                <span className="text-brand-orange font-medium">
                   📂 {dataMissingCount} Rohdaten fehlen
                 </span>
               )}
@@ -186,11 +189,11 @@ export default function Setup({ onDone }) {
         </div>
 
         {/* Component list */}
-        <div className="flex-1 overflow-auto p-5 space-y-2.5">
+        <div className="flex-1 overflow-auto p-5 space-y-2">
           {loading ? (
-            <div className="text-center py-10 text-gray-400">Lade Status …</div>
+            <div className="text-center py-10 text-brand-charcoal/40 font-mono text-sm">Lade Status …</div>
           ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+            <div className="bg-red-50 border border-red-200 p-4 text-sm text-red-700">
               {error}
             </div>
           ) : (
@@ -200,8 +203,8 @@ export default function Setup({ onDone }) {
           )}
 
           {allDone && (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-              <p className="text-green-700 font-semibold text-sm">
+            <div className="bg-green-50 border border-green-300 p-4 text-center">
+              <p className="text-green-700 font-bold text-sm uppercase tracking-wide">
                 ✅ Alle Komponenten bereit — die App kann gestartet werden!
               </p>
             </div>
@@ -209,10 +212,10 @@ export default function Setup({ onDone }) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 shrink-0 flex items-center justify-between gap-3">
-          <div className="text-xs text-gray-400">
+        <div className="px-6 py-4 border-t border-brand-charcoal/10 bg-brand-cream shrink-0 flex items-center justify-between gap-3">
+          <div className="text-xs text-brand-charcoal/40 font-mono">
             {running && (
-              <span className="text-blue-600 animate-pulse font-medium">
+              <span className="text-brand-cyan animate-pulse font-medium">
                 ⟳ Setup läuft …
               </span>
             )}
@@ -220,14 +223,14 @@ export default function Setup({ onDone }) {
           <div className="flex gap-3">
             <button
               onClick={() => onDone?.()}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 text-sm text-brand-charcoal/50 hover:text-brand-charcoal transition-colors"
             >
               Überspringen →
             </button>
             {scriptableCount > 0 && !running && (
               <button
                 onClick={handleRunAll}
-                className="px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors"
+                className="px-5 py-2 text-sm font-bold bg-brand-orange text-white hover:brightness-110 transition-all uppercase tracking-wide"
               >
                 ▶ Fehlende Daten aufbauen ({scriptableCount})
               </button>
@@ -235,7 +238,7 @@ export default function Setup({ onDone }) {
             {allDone && (
               <button
                 onClick={() => onDone?.()}
-                className="px-5 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors"
+                className="px-5 py-2 text-sm font-bold bg-green-600 text-white hover:brightness-110 transition-all uppercase tracking-wide"
               >
                 ✅ Zur App →
               </button>

@@ -4,18 +4,19 @@ import Eli5 from '../components/Eli5'
 import MAEByHorizonChart from '../components/charts/MAEByHorizonChart'
 import PickAccuracyChart from '../components/charts/PickAccuracyChart'
 import MultiStationForecastChart from '../components/charts/MultiStationForecastChart'
+import PixelPattern from '../components/ui/PixelPattern'
 
 function StepBadge({ n, label, active, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
         active
-          ? 'bg-blue-600 text-white shadow-md'
-          : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
+          ? 'bg-brand-orange text-white'
+          : 'bg-white border border-brand-charcoal/15 text-brand-charcoal hover:border-brand-orange/50'
       }`}
     >
-      <span className={`text-xs font-mono ${active ? 'text-blue-200' : 'text-gray-400'}`}>{n}</span>
+      <span className={`text-xs font-mono ${active ? 'text-white/70' : 'text-brand-charcoal/30'}`}>{n}</span>
       {label}
     </button>
   )
@@ -73,7 +74,7 @@ function ModelCard({ model }) {
 function SectionBusiness() {
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white border border-gray-200 p-6 shadow-sm">
         <h2 className="text-lg font-bold text-gray-800 mb-2">Das Geschäftsproblem</h2>
         <p className="text-sm text-gray-600 mb-4">
           Eine Spedition mit 25 LKWs fährt täglich die B29-Route (Aalen → Stuttgart, ~500 km).
@@ -87,9 +88,9 @@ function SectionBusiness() {
             { label: '500 km/Tag', sub: 'Tagesstrecke B29' },
             { label: '3.750 L/Tag', sub: 'Diesel-Verbrauch' },
           ].map(c => (
-            <div key={c.label} className="bg-blue-50 rounded-lg p-3 text-center">
-              <p className="text-lg font-bold text-blue-800">{c.label}</p>
-              <p className="text-xs text-blue-600">{c.sub}</p>
+            <div key={c.label} className="bg-brand-cyan/20 p-3 text-center border border-brand-cyan/30">
+              <p className="text-lg font-bold text-brand-charcoal">{c.label}</p>
+              <p className="text-xs text-brand-charcoal/60">{c.sub}</p>
             </div>
           ))}
         </div>
@@ -101,7 +102,7 @@ function SectionBusiness() {
         </Eli5>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white border border-gray-200 p-6 shadow-sm">
         <h2 className="text-base font-semibold text-gray-800 mb-2">Erfolgsmetrik: Pick-Accuracy</h2>
         <p className="text-sm text-gray-600 mb-3">
           Wie oft sagt das Modell korrekt voraus, welche der 5 Stationen in den nächsten
@@ -129,15 +130,15 @@ function SectionBusiness() {
 
 function SectionDatenVorbereitung() {
   const features = [
-    { group: 'Lag-Features', count: '9 × 5 = 45', desc: 'Preise 1h, 2h, 3h, 6h, 12h, 24h, 48h, 72h, 168h zurück', color: 'bg-blue-100 text-blue-700' },
-    { group: 'Rolling Stats', count: '6 × 5 = 30', desc: 'Gleitender Mittelwert und Std.-Abw. über 6h, 24h, 48h', color: 'bg-purple-100 text-purple-700' },
+    { group: 'Lag-Features', count: '9 × 5 = 45', desc: 'Preise 1h, 2h, 3h, 6h, 12h, 24h, 48h, 72h, 168h zurück', color: 'bg-brand-cyan/25 text-brand-charcoal' },
+    { group: 'Rolling Stats', count: '6 × 5 = 30', desc: 'Gleitender Mittelwert und Std.-Abw. über 6h, 24h, 48h', color: 'bg-brand-yellow/40 text-brand-charcoal' },
     { group: 'Trend/Momentum', count: '2 × 5 = 10', desc: 'Linearer Trend (24h-Fenster), Momentum (t-1h vs t-24h)', color: 'bg-amber-100 text-amber-700' },
     { group: 'Preis t₀', count: '5', desc: 'Aktueller Preis jeder Station zum Zeitpunkt der Vorhersage', color: 'bg-orange-100 text-orange-700' },
     { group: 'Zeitfeatures', count: '6', desc: 'sin/cos Stunde, sin/cos Wochentag, Wochenende, Feiertag', color: 'bg-green-100 text-green-700' },
   ]
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white border border-gray-200 p-6 shadow-sm">
         <h2 className="text-lg font-bold text-gray-800 mb-2">Feature Engineering — 101 Eingaben</h2>
         <p className="text-sm text-gray-600 mb-4">
           Rohe Stundenpreise reichen nicht. Das Modell braucht aufbereitete Features,
@@ -168,7 +169,7 @@ function SectionDatenVorbereitung() {
         </Eli5>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white border border-gray-200 p-6 shadow-sm">
         <h2 className="text-base font-semibold text-gray-800 mb-2">Train / Val / Test Split</h2>
         <p className="text-sm text-gray-600 mb-3">
           Zeitreihen-Daten dürfen <strong>nicht zufällig</strong> aufgeteilt werden —
@@ -176,8 +177,8 @@ function SectionDatenVorbereitung() {
         </p>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Training', period: '2014–2021', rows: '66.159 Stunden', color: 'bg-blue-50 border-blue-200' },
-            { label: 'Validierung', period: '2022–2023', rows: '17.520 Stunden', color: 'bg-purple-50 border-purple-200' },
+            { label: 'Training', period: '2014–2021', rows: '66.159 Stunden', color: 'bg-brand-yellow/30 border-brand-yellow/60' },
+            { label: 'Validierung', period: '2022–2023', rows: '17.520 Stunden', color: 'bg-brand-cyan/20 border-brand-cyan/40' },
             { label: 'Test', period: '2024–heute', rows: '20.829 Stunden', color: 'bg-green-50 border-green-200' },
           ].map(s => (
             <div key={s.label} className={`rounded-lg border p-3 ${s.color}`}>
@@ -203,7 +204,7 @@ function SectionDatenVorbereitung() {
 function SectionB29({ b29Data }) {
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white border border-gray-200 p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-3">
           <h2 className="text-lg font-bold text-gray-800">Modell 1: B29 Fleet MLP</h2>
           {!b29Data?.model_available && (
@@ -227,12 +228,12 @@ function SectionB29({ b29Data }) {
 
       {b29Data && (
         <div className="grid grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white border border-gray-200 p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-700 mb-1">72h-Prognose — 4 Cluster</h3>
             <p className="text-xs text-gray-400 mb-4">Diesel · Hover für Stundenpreise</p>
             <MultiStationForecastChart stations={b29Data.clusters?.map(c => ({ ...c, name: c.label })) || []} />
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white border border-gray-200 p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-700 mb-1">MAE nach Horizont</h3>
             <p className="text-xs text-gray-400 mb-4">MLP vs. Persistence Baseline</p>
             <MAEByHorizonChart data={b29Data.mae_by_horizon} />
@@ -240,14 +241,14 @@ function SectionB29({ b29Data }) {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="bg-white border border-gray-200 p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-gray-700 mb-2">Modell-Architektur</h3>
         <div className="font-mono text-sm text-center py-4 space-x-4 text-gray-700">
-          <span className="bg-blue-100 text-blue-800 px-3 py-1.5 rounded">80 Inputs</span>
+          <span className="bg-brand-yellow/40 text-brand-charcoal px-3 py-1.5">80 Inputs</span>
           <span className="text-gray-400">→</span>
-          <span className="bg-purple-100 text-purple-800 px-3 py-1.5 rounded">256 Neuronen</span>
+          <span className="bg-brand-cyan/30 text-brand-charcoal px-3 py-1.5">256 Neuronen</span>
           <span className="text-gray-400">→</span>
-          <span className="bg-purple-100 text-purple-800 px-3 py-1.5 rounded">128 Neuronen</span>
+          <span className="bg-brand-cyan/30 text-brand-charcoal px-3 py-1.5">128 Neuronen</span>
           <span className="text-gray-400">→</span>
           <span className="bg-green-100 text-green-800 px-3 py-1.5 rounded">288 Outputs</span>
         </div>
@@ -262,7 +263,7 @@ function SectionB29({ b29Data }) {
 function SectionSpedition({ speditionData }) {
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white border border-gray-200 p-6 shadow-sm">
         <h2 className="text-lg font-bold text-gray-800 mb-2">Modell 2: Spedition MLP — das Template</h2>
         <p className="text-sm text-gray-600 mb-4">
           Präziser als B29: Statt Cluster wählen wir <strong>5 konkrete Tankstellen</strong>
@@ -298,12 +299,12 @@ function SectionSpedition({ speditionData }) {
       {speditionData && (
         <>
           <div className="grid grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="bg-white border border-gray-200 p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-gray-700 mb-1">72h-Prognose — 5 Stationen</h3>
               <p className="text-xs text-gray-400 mb-4">Diesel · Live aus spedition_mlp.joblib</p>
               <MultiStationForecastChart stations={speditionData.stations || []} />
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="bg-white border border-gray-200 p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-gray-700 mb-1">Pick-Accuracy nach Horizont</h3>
               <p className="text-xs text-gray-400 mb-4">Anteil korrekt vorhergesagter günstigster Stationen</p>
               <PickAccuracyChart
@@ -316,7 +317,7 @@ function SectionSpedition({ speditionData }) {
               />
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white border border-gray-200 p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-700 mb-1">Spearman-Rangkorrelation</h3>
             <p className="text-xs text-gray-400 mb-4">
               Stimmt die vorhergesagte Preisreihenfolge mit der echten überein? (ρ = 1 = perfekt)
@@ -343,7 +344,7 @@ function SectionAllGermany({ models }) {
   const agModels = models?.filter(m => m.id?.startsWith('all_germany')) || []
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white border border-gray-200 p-6 shadow-sm">
         <h2 className="text-lg font-bold text-gray-800 mb-2">Modell 3: All-Germany MLP</h2>
         <p className="text-sm text-gray-600 mb-4">
           Der breiteste Ansatz: Alle 9 Standorte (4 B29-Cluster + 5 Speditions-Stationen)
@@ -362,25 +363,25 @@ function SectionAllGermany({ models }) {
         </Eli5>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="bg-white border border-gray-200 p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Modell-Architektur (All-Germany)</h3>
         <div className="font-mono text-sm text-center py-4 space-x-4 text-gray-700">
-          <span className="bg-blue-100 text-blue-800 px-3 py-1.5 rounded">519 Inputs</span>
+          <span className="bg-brand-yellow/40 text-brand-charcoal px-3 py-1.5">519 Inputs</span>
           <span className="text-gray-400">→</span>
-          <span className="bg-purple-100 text-purple-800 px-3 py-1.5 rounded">128 Neuronen</span>
+          <span className="bg-brand-cyan/30 text-brand-charcoal px-3 py-1.5">128 Neuronen</span>
           <span className="text-gray-400">→</span>
-          <span className="bg-purple-100 text-purple-800 px-3 py-1.5 rounded">64 Neuronen</span>
+          <span className="bg-brand-cyan/30 text-brand-charcoal px-3 py-1.5">64 Neuronen</span>
           <span className="text-gray-400">→</span>
           <span className="bg-green-100 text-green-800 px-3 py-1.5 rounded">N × 72 Outputs</span>
         </div>
         <p className="text-xs text-gray-400 text-center">Ein Modell je Kraftstofftyp (Diesel / E5 / E10)</p>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-blue-800 mb-2">Notebooks</h3>
-        <p className="text-sm text-blue-700">
+      <div className="bg-brand-cyan/15 border border-brand-cyan/40 p-5">
+        <h3 className="text-sm font-semibold text-brand-charcoal mb-2">Notebooks</h3>
+        <p className="text-sm text-brand-charcoal/70">
           Alle Details, Code und Visualisierungen sind in den Notebooks dokumentiert.
-          Die All-Germany-Modelle werden durch <code className="bg-blue-100 px-1 rounded text-xs">all_germany_web_mlp.ipynb</code> erzeugt.
+          Die All-Germany-Modelle werden durch <code className="bg-brand-cyan/30 px-1 text-xs">all_germany_web_mlp.ipynb</code> erzeugt.
           Unter <strong>Notebooks</strong> (Schritt 06) können sie direkt durchstöbert werden.
         </p>
       </div>
@@ -421,17 +422,18 @@ export default function Modellierung() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Schritt 04</span>
-          <h1 className="text-xl font-bold text-gray-900">Modellierung</h1>
+      <header className="relative overflow-hidden shrink-0 bg-brand-cyan">
+        <PixelPattern color1="rgba(28,28,26,0.10)" color2="transparent" steps={4}
+          className="absolute top-0 right-0 pointer-events-none" />
+        <div className="px-8 pt-6 pb-3">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-brand-charcoal/50 mb-1">Schritt 04 · CRISP-DM · Modeling</p>
+          <h1 className="text-4xl font-bold text-brand-charcoal uppercase leading-none">Modellierung</h1>
+          <p className="text-sm mt-2 text-brand-charcoal/60">
+            Drei aufeinander aufbauende MLP-Modelle — von Business Understanding bis Deployment.
+          </p>
         </div>
-        <p className="text-sm text-gray-500 mb-3">
-          Der Kern des Projekts: Drei aufeinander aufbauende MLP-Modelle, erklärt von den
-          Geschäftszielen bis zur Deployment-Empfehlung.
-        </p>
         {/* Step navigation */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-0 flex-wrap border-t border-brand-charcoal/10 mt-2">
           {STEPS.map((s, i) => (
             <StepBadge
               key={s.id}
@@ -442,10 +444,10 @@ export default function Modellierung() {
             />
           ))}
         </div>
-      </div>
+      </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6 bg-gray-50">
+      <div className="flex-1 overflow-auto p-6 bg-brand-cream/60">
         <div className="max-w-5xl mx-auto">
           {loading && (
             <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400 text-sm">

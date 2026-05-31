@@ -3,12 +3,13 @@ import { api, FUEL_LABELS } from '../services/api'
 import PriceLineChart from '../components/charts/PriceLineChart'
 import TimeHeatmap from '../components/charts/TimeHeatmap'
 import Eli5 from '../components/Eli5'
+import PixelPattern from '../components/ui/PixelPattern'
 
 function StatCard({ label, value, sub, accent = false }) {
   return (
-    <div className={`bg-white rounded-xl border p-4 ${accent ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'}`}>
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className="text-2xl font-bold text-gray-800">{value}</p>
+    <div className={`bg-white p-4 shadow-sm ${accent ? 'border-l-4 border-brand-orange' : 'border border-gray-200'}`}>
+      <p className="text-[10px] font-mono uppercase tracking-widest text-brand-charcoal/40 mb-1">{label}</p>
+      <p className="text-2xl font-bold text-brand-charcoal">{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
     </div>
   )
@@ -67,7 +68,7 @@ function PriceHistogram({ data, nOutliersHigh = 0 }) {
               title={`${price} €/L: ${bin.count.toLocaleString('de-DE')} Stunden`}
             >
               <div
-                className="w-full bg-blue-400 hover:bg-blue-500 rounded-t transition-colors cursor-default"
+                className="w-full bg-brand-yellow hover:bg-brand-orange rounded-t transition-colors cursor-default"
                 style={{ height: `${Math.max(1, pct)}%` }}
               />
             </div>
@@ -168,28 +169,27 @@ export default function DataExploration() {
   const ps  = eda?.price_stats
 
   return (
-    <div className="flex flex-col h-full overflow-auto bg-gray-50">
-      {/* Hero */}
-      <div className="bg-white border-b border-gray-200 px-6 py-5">
-        <div className="flex items-center gap-3 mb-1">
-          <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Schritt 01</span>
-          <h1 className="text-xl font-bold text-gray-900">Datenexploration</h1>
-        </div>
-        <p className="text-sm text-gray-500 max-w-3xl">
-          Bevor wir Modelle bauen, müssen wir die Daten <strong>kennen und verstehen</strong>.
-          Was steckt in den 15.000+ Tankstellen-Datensätzen? Gibt es Ausreißer, Lücken, Muster?
-          Diese Seite zeigt die Rohdaten so wie sie sind — ehrlich und ungefiltert.
+    <div className="flex flex-col h-full overflow-auto bg-brand-cream">
+      {/* Page header — yellow */}
+      <header className="relative overflow-hidden shrink-0 px-8 py-6 bg-brand-yellow">
+        <p className="text-[10px] font-mono uppercase tracking-widest text-brand-charcoal/50 mb-1">Schritt 01 · CRISP-DM · Data Understanding</p>
+        <h1 className="text-4xl font-bold text-brand-charcoal uppercase leading-none">Datenexploration</h1>
+        <p className="text-sm mt-2 text-brand-charcoal/60 max-w-xl">
+          Bevor wir Modelle bauen, müssen wir die Daten kennen und verstehen.
+          15.000+ Tankstellen · Ausreißer · Zeitliche Muster.
         </p>
-      </div>
+        <PixelPattern color1="rgba(28,28,26,0.12)" color2="transparent" steps={4}
+          className="absolute top-0 right-0" />
+      </header>
 
       <div className="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
 
         {edaError && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+          <div className="bg-brand-yellow/30 border border-brand-yellow p-4 text-sm text-brand-charcoal">
             <strong>EDA-Summary nicht gefunden.</strong> Bitte einmalig ausführen:{' '}
-            <code className="bg-amber-100 px-1.5 rounded text-xs">python scripts/build_eda_summary.py</code>
+            <code className="bg-brand-yellow/40 px-1.5 rounded text-xs">python scripts/build_eda_summary.py</code>
             <br />
-            <span className="text-xs text-amber-600 mt-1 block">Fehler: {edaError}</span>
+            <span className="text-xs text-brand-charcoal/60 mt-1 block">Fehler: {edaError}</span>
           </div>
         )}
 
@@ -237,7 +237,7 @@ export default function DataExploration() {
 
         {/* Datenqualität */}
         {q && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white border border-gray-200 p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-sm font-semibold text-gray-700">Datenqualität</h2>
               <RealBadge />
@@ -264,7 +264,7 @@ export default function DataExploration() {
         {/* Preisverteilung + Histogramm */}
         {ps && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="bg-white border border-gray-200 p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <h2 className="text-sm font-semibold text-gray-700">Preisverteilung (Diesel, B29)</h2>
                 <RealBadge />
@@ -279,7 +279,7 @@ export default function DataExploration() {
                 nOutliersHigh={ps.n_outliers_high ?? 0}
               />
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="bg-white border border-gray-200 p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <h2 className="text-sm font-semibold text-gray-700">Preis-Kennzahlen</h2>
                 <RealBadge />
@@ -287,7 +287,7 @@ export default function DataExploration() {
               <p className="text-xs text-gray-400 mb-4">Statistische Zusammenfassung aller Dieselpreise im B29-Datensatz.</p>
               <div className="space-y-2">
                 {[
-                  { label: 'Mittelwert',   val: ps.mean, color: 'text-blue-600' },
+                  { label: 'Mittelwert',   val: ps.mean, color: 'text-brand-orange' },
                   { label: 'Median (P50)', val: ps.p50,  color: 'text-gray-700' },
                   { label: 'Minimum',      val: ps.min,  color: 'text-green-600' },
                   { label: 'Maximum',      val: ps.max,  color: 'text-red-600' },
@@ -309,7 +309,7 @@ export default function DataExploration() {
 
         {/* Intraday-Profil */}
         {eda?.intraday_profile?.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white border border-gray-200 p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-sm font-semibold text-gray-700">Intraday-Preismuster</h2>
               <RealBadge />
@@ -331,7 +331,7 @@ export default function DataExploration() {
 
         {/* Wochentagsmuster */}
         {eda?.weekday_pattern?.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white border border-gray-200 p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-sm font-semibold text-gray-700">Wochentags-Preismuster</h2>
               <RealBadge />
@@ -346,7 +346,7 @@ export default function DataExploration() {
 
         {/* Langzeit-Trend */}
         {history.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white border border-gray-200 p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-sm font-semibold text-gray-700">Langzeit-Preisverlauf (Diesel, B29)</h2>
               {historyMock ? <MockBadge /> : <RealBadge label="Echte B29-Tagesmittel" />}
@@ -362,7 +362,7 @@ export default function DataExploration() {
 
         {/* Wochentags-Stunden-Heatmap */}
         {heatmap && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white border border-gray-200 p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-sm font-semibold text-gray-700">
                 Wochentag × Uhrzeit — Preisheatmap (Diesel)
@@ -385,7 +385,7 @@ export default function DataExploration() {
         )}
 
         {loading && !eda && !heatmap && (
-          <div className="bg-white rounded-xl border border-gray-200 p-10 flex items-center justify-center text-gray-400 text-sm">
+          <div className="bg-white border border-gray-200 p-10 flex items-center justify-center text-brand-charcoal/40 text-sm">
             Lade Explorationsdaten …
           </div>
         )}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api, FUEL_LABELS } from '../services/api'
 import GeoPriceMap3D from '../components/map/GeoPriceMap3D'
 import Eli5 from '../components/Eli5'
+import PixelPattern from '../components/ui/PixelPattern'
 
 const FUEL_TYPES = ['diesel', 'e5', 'e10']
 
@@ -45,11 +46,13 @@ export default function GeoExploration() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Top bar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-2 shrink-0 space-y-2">
+      <div className="relative bg-brand-cyan border-b-2 border-brand-charcoal/10 px-4 py-2 shrink-0 space-y-2 overflow-hidden">
+        <PixelPattern color1="rgba(28,28,26,0.10)" color2="transparent" size={24} steps={4}
+          className="absolute top-0 right-0 pointer-events-none" />
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">02</span>
-            <h1 className="text-sm font-semibold text-gray-800">Geo-Exploration</h1>
+            <span className="text-[10px] font-mono font-bold text-brand-charcoal/40">02</span>
+            <h1 className="text-sm font-bold text-brand-charcoal uppercase tracking-wide">Geo-Exploration</h1>
           </div>
 
           {/* Fuel type */}
@@ -59,7 +62,7 @@ export default function GeoExploration() {
                 key={ft}
                 onClick={() => setFuelType(ft)}
                 className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  fuelType === ft ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  fuelType === ft ? 'bg-brand-charcoal text-white' : 'bg-brand-charcoal/10 text-brand-charcoal hover:bg-brand-charcoal/20'
                 }`}
               >
                 {FUEL_LABELS[ft]}
@@ -92,7 +95,7 @@ export default function GeoExploration() {
           {/* ELI5 toggle */}
           <button
             onClick={() => setShowEli5(v => !v)}
-            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+            className="text-xs text-brand-charcoal font-semibold hover:text-brand-orange transition-colors"
           >
             {showEli5 ? '▲ ELI5 einklappen' : '▼ ELI5 erklären'}
           </button>
@@ -108,8 +111,8 @@ export default function GeoExploration() {
                 title={s.desc}
                 className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                   scenario === s.value
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-brand-orange text-white'
+                    : 'bg-brand-charcoal/10 text-brand-charcoal hover:bg-brand-charcoal/20'
                 }`}
               >
                 {s.label}
@@ -130,13 +133,13 @@ export default function GeoExploration() {
           )}
 
           {isNonDiesel && (
-            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+            <span className="text-xs text-brand-charcoal bg-brand-yellow/50 border border-brand-yellow px-2 py-0.5">
               Modell nur für Diesel — E5/E10 als Näherung
             </span>
           )}
 
           {scenario === 'germany' && !data?.meta?.model_available && (
-            <span className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded px-2 py-0.5">
+            <span className="text-xs text-brand-charcoal bg-brand-cyan/40 border border-brand-cyan px-2 py-0.5">
               Nationales Modell: <strong>all_germany_web_mlp.ipynb</strong> ausführen
             </span>
           )}

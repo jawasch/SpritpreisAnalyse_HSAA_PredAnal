@@ -4,6 +4,7 @@ import Eli5 from '../components/Eli5'
 import MultiStationForecastChart from '../components/charts/MultiStationForecastChart'
 import PickAccuracyChart from '../components/charts/PickAccuracyChart'
 import MAEByHorizonChart from '../components/charts/MAEByHorizonChart'
+import PixelPattern from '../components/ui/PixelPattern'
 
 function TabBar({ active, onChange }) {
   const tabs = [
@@ -11,15 +12,15 @@ function TabBar({ active, onChange }) {
     { value: 'b29',       label: 'B29 Flotte · 4 Cluster' },
   ]
   return (
-    <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+    <div className="flex gap-0 bg-brand-charcoal/10 p-1 w-fit">
       {tabs.map(t => (
         <button
           key={t.value}
           onClick={() => onChange(t.value)}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+          className={`px-5 py-2 text-sm font-semibold transition-colors ${
             active === t.value
-              ? 'bg-white shadow text-gray-900'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-brand-orange text-white'
+              : 'text-brand-charcoal hover:bg-brand-charcoal/10'
           }`}
         >
           {t.label}
@@ -31,8 +32,8 @@ function TabBar({ active, onChange }) {
 
 function MetricChip({ label, value }) {
   return (
-    <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-800 rounded-full px-2.5 py-0.5 font-medium">
-      <span className="text-blue-500">{label}</span>
+    <span className="inline-flex items-center gap-1 text-xs bg-brand-charcoal text-white px-2.5 py-0.5 font-medium">
+      <span className="text-brand-cyan">{label}</span>
       {value}
     </span>
   )
@@ -54,7 +55,7 @@ function FlottenKalkulator({ label, defaultTrucks, defaultTank, savingsPerLiter 
   const savingsPerYear = savingsPerDay * 365
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div className="bg-white border border-gray-200 p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-gray-700 mb-1">Flottenkosten-Kalkulator</h3>
       <p className="text-xs text-gray-400 mb-4">
         Potenzielle Einsparungen bei optimiertem Dispatch (Ø {(savingsPerLiter * 100).toFixed(1)} ct/L Modell-Vorteil)
@@ -63,21 +64,21 @@ function FlottenKalkulator({ label, defaultTrucks, defaultTank, savingsPerLiter 
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Fahrzeuge: <span className="text-blue-600 font-semibold">{numTrucks}</span>
+              Fahrzeuge: <span className="text-brand-orange font-semibold">{numTrucks}</span>
             </label>
             <input type="range" min="1" max="50" value={numTrucks}
               onChange={e => setNumTrucks(Number(e.target.value))}
-              className="w-full accent-blue-600"
+              className="w-full accent-brand-orange"
             />
             <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>50</span></div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Tankgröße: <span className="text-blue-600 font-semibold">{tankSize} L</span>
+              Tankgröße: <span className="text-brand-orange font-semibold">{tankSize} L</span>
             </label>
             <input type="range" min="100" max="1000" step="50" value={tankSize}
               onChange={e => setTankSize(Number(e.target.value))}
-              className="w-full accent-blue-600"
+              className="w-full accent-brand-orange"
             />
             <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>100 L</span><span>1 000 L</span></div>
           </div>
@@ -103,7 +104,7 @@ function DispatchTable({ recs, label }) {
   if (!recs?.length) return null
   const cheapestId = recs[0]?.route || recs[0]?.cluster_id
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div className="bg-white border border-gray-200 p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-gray-700 mb-4">{label} (Diesel, nächste 72h)</h3>
       <table className="w-full text-sm">
         <thead>
@@ -156,10 +157,10 @@ function SpeditionTab({ data }) {
   return (
     <div className="space-y-6">
       {/* Model banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4">
+      <div className="bg-brand-cyan/15 border border-brand-cyan/40 px-5 py-4">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-semibold text-blue-900">{data.model?.name}</span>
-          <span className="text-xs text-blue-600 font-mono">{data.model?.architecture}</span>
+          <span className="text-sm font-semibold text-brand-charcoal">{data.model?.name}</span>
+          <span className="text-xs text-brand-charcoal/60 font-mono">{data.model?.architecture}</span>
           <span className="text-xs bg-amber-100 text-amber-800 rounded-full px-2.5 py-0.5 font-semibold">Diesel</span>
           {data.model?.mae      && <MetricChip label="MAE"          value={`${data.model.mae.toFixed(4)} €/L`} />}
           {data.model?.r2       && <MetricChip label="R²"           value={data.model.r2.toFixed(3)} />}
@@ -169,7 +170,7 @@ function SpeditionTab({ data }) {
           {data.savings && <SavingsBadge text={`€ ${data.savings.per_day_eur?.toFixed(0)}/Tag · ${data.savings.trucks} Fzg.`} />}
         </div>
         {data.parquet_last && (
-          <p className="text-xs text-blue-500 mt-1.5">
+          <p className="text-xs text-brand-charcoal/50 mt-1.5">
             Datenstand: {data.parquet_last.slice(0, 10)}
             {data.live_prices_used && ' · Live-Preise eingebunden'}
             {data.inference_error && <span className="text-amber-600"> · Fallback aktiv</span>}
@@ -187,12 +188,12 @@ function SpeditionTab({ data }) {
       <DispatchTable recs={data.recommendations} label="Dispatch-Empfehlung" />
 
       <div className="grid grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white border border-gray-200 p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-700 mb-1">72h-Prognose — 5 Stationen</h3>
           <p className="text-xs text-gray-400 mb-4">Diesel · Hover für Stundenpreise</p>
           <MultiStationForecastChart stations={data.stations || []} />
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white border border-gray-200 p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-700 mb-1">Pick-Accuracy nach Horizont</h3>
           <p className="text-xs text-gray-400 mb-4">Test-Datensatz 2024+</p>
           <PickAccuracyChart
@@ -221,17 +222,17 @@ function B29Tab({ data }) {
   return (
     <div className="space-y-6">
       {!data.model_available && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+        <div className="bg-brand-yellow/30 border border-brand-yellow px-4 py-3 text-xs text-brand-charcoal">
           Kein trainiertes B29-Modell gefunden (<code>data/models/b29_mlp.joblib</code>).
           Prognose basiert auf saisonaler Naive-Methode.
           Notebook <strong>b29_fleet_mlp.ipynb</strong> ausführen, um das Modell zu erzeugen.
         </div>
       )}
 
-      <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4">
+      <div className="bg-brand-cyan/15 border border-brand-cyan/40 px-5 py-4">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-semibold text-blue-900">{data.model?.name}</span>
-          <span className="text-xs text-blue-600 font-mono">{data.model?.architecture}</span>
+          <span className="text-sm font-semibold text-brand-charcoal">{data.model?.name}</span>
+          <span className="text-xs text-brand-charcoal/60 font-mono">{data.model?.architecture}</span>
           <span className="text-xs bg-amber-100 text-amber-800 rounded-full px-2.5 py-0.5 font-semibold">Diesel</span>
           {data.model?.mae != null && <MetricChip label="MAE" value={`${data.model.mae.toFixed(3)} €/L`} />}
           {data.model?.r2  != null && <MetricChip label="R²"  value={data.model.r2.toFixed(2)} />}
@@ -246,7 +247,7 @@ function B29Tab({ data }) {
           )}
         </div>
         {data.parquet_last && (
-          <p className="text-xs text-blue-500 mt-1.5">
+          <p className="text-xs text-brand-charcoal/50 mt-1.5">
             Datenstand: {data.parquet_last.slice(0, 10)}
             {data.inference_error && <span className="text-amber-600"> · Fallback aktiv</span>}
           </p>
@@ -256,14 +257,14 @@ function B29Tab({ data }) {
       <DispatchTable recs={data.recommendations} label="Cluster-Empfehlung" />
 
       <div className="grid grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white border border-gray-200 p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-700 mb-1">72h-Prognose — 4 Cluster</h3>
           <p className="text-xs text-gray-400 mb-4">B29 Aalen → Stuttgart</p>
           <MultiStationForecastChart
             stations={data.clusters?.map(c => ({ ...c, name: c.label })) || []}
           />
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white border border-gray-200 p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-gray-700 mb-1">MAE nach Horizont</h3>
           <p className="text-xs text-gray-400 mb-4">MLP vs. Persistence Baseline</p>
           <MAEByHorizonChart data={data.mae_by_horizon} />
@@ -299,18 +300,17 @@ export default function Deployment() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
-        <div className="flex items-center gap-3 mb-1">
-          <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Schritt 05</span>
-          <h1 className="text-xl font-bold text-gray-900">Deployment</h1>
-        </div>
-        <p className="text-sm text-gray-500">
+      <header className="relative overflow-hidden shrink-0 px-8 py-6 bg-brand-orange">
+        <p className="text-[10px] font-mono uppercase tracking-widest text-brand-charcoal/50 mb-1">Schritt 05 · CRISP-DM · Deployment</p>
+        <h1 className="text-4xl font-bold text-brand-charcoal uppercase leading-none">Deployment</h1>
+        <p className="text-sm mt-2 text-brand-charcoal/60">
           Live-Inferenz aus den trainierten joblib-Modellen — kein Mock, echte Vorhersagen.
-          Prognose wird bei jedem Seitenaufruf neu berechnet.
         </p>
-      </div>
+        <PixelPattern color1="rgba(28,28,26,0.12)" color2="transparent" steps={4}
+          className="absolute top-0 right-0" />
+      </header>
 
-      <div className="flex-1 overflow-auto p-6 bg-gray-50">
+      <div className="flex-1 overflow-auto p-6 bg-brand-cream/60">
         <div className="max-w-5xl mx-auto space-y-6">
           <TabBar active={activeTab} onChange={setActiveTab} />
 
@@ -321,7 +321,7 @@ export default function Deployment() {
           )}
 
           {loading && (
-            <div className="bg-white rounded-xl border border-gray-200 p-10 flex items-center justify-center text-gray-400 text-sm">
+            <div className="bg-white border border-gray-200 p-10 flex items-center justify-center text-brand-charcoal/40 text-sm">
               Lade Live-Prognosen …
             </div>
           )}

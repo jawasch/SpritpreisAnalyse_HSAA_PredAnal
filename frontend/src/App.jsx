@@ -30,7 +30,7 @@ export default function App() {
 
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <div className="flex h-screen overflow-hidden bg-gray-50">
+      <div className="flex h-screen overflow-hidden bg-brand-cream">
         <Sidebar />
         <main className="flex-1 flex flex-col overflow-hidden">
           <Routes>
