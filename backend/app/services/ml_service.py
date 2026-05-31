@@ -849,19 +849,26 @@ def get_diesel_price_history(days: int = 30) -> dict:
     Response shape matches mock_data.get_price_history() exactly.
     """
     _, df = ml_service._load_b29()
-    daily = df.resample("D").mean()
+    # Use only the 4 actual price columns, not lag/rolling/trend features
+    price_cols = [c for c in df.columns if c.startswith("diesel_")
+                  and not any(x in c for x in ("_lag_", "_roll_", "_trend", "_momentum", "_diff", "_price_t"))]
+    price_df = df[price_cols] if price_cols else df
+    daily = price_df.resample("D").mean()
     tail = daily.iloc[-(days + 1):]
     data = []
     for ts, row in tail.iterrows():
-        avg = float(row.mean())
-        low = float(row.min())
-        high = float(row.max())
+        vals = row.dropna()
+        if vals.empty:
+            continue
+        avg = float(vals.mean())
+        low = float(vals.min())
+        high = float(vals.max())
         data.append({
             "timestamp": ts.isoformat(),
-            "price": round(avg, 3),
-            "min": round(low, 3),
-            "max": round(high, 3),
-            "station_count": 4,  # 4 B29 cluster means
+            "price": round(avg, 4),
+            "min": round(low, 4),
+            "max": round(high, 4),
+            "station_count": len(price_cols),
         })
     return {"ok": True, "fuel_type": "diesel", "data": data}
 

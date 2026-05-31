@@ -36,6 +36,34 @@ def _component_status(comp: dict) -> str:
     return "ok" if (DATA_DIR / comp["path"]).exists() else "missing"
 
 
+TANKERKOENIG_ROOT = Path(os.getenv("TANKERKOENIG_DATA_PATH", str(DATA_DIR / "tankerkoenig-data")))
+
+
+def _check_tankerkoenig() -> tuple[bool, str]:
+    """Return (ok, error_message) — validates the raw-data mount before scripts run."""
+    if not TANKERKOENIG_ROOT.exists():
+        return False, (
+            f"Rohdaten-Verzeichnis nicht gefunden: {TANKERKOENIG_ROOT}\n"
+            "Prüfe docker-compose.yml Volume-Mount "
+            "(../tankerkoenig-data:/app/data/tankerkoenig-data:ro) "
+            "und führe 'git pull' im tankerkoenig-data Repository aus."
+        )
+    prices_dir = TANKERKOENIG_ROOT / "prices"
+    if not prices_dir.exists():
+        return False, (
+            f"Kein 'prices/'-Unterverzeichnis in {TANKERKOENIG_ROOT}. "
+            "Prüfe ob das Repository vollständig ausgecheckt ist."
+        )
+    # Check that at least one CSV exists
+    found = next(prices_dir.rglob("*.csv"), None)
+    if found is None:
+        return False, (
+            f"Keine CSV-Dateien in {prices_dir}. "
+            "Führe 'git pull' im tankerkoenig-data Repository aus."
+        )
+    return True, ""
+
+
 COMPONENTS = [
     {
         "id":     "b29_parquet",
@@ -74,6 +102,7 @@ COMPONENTS = [
         "label":  "Aktuelle Stationspreise (letzte 7 Tage, alle 15k)",
         "path":   "processed/recent_prices_diesel_7d.parquet",
         "script": "build_recent_prices.py",
+        "needs_tankerkoenig": True,
         "description": "Echte Stundenpreise aller Tankstellen aus Rohdaten — für 3D-Karte.",
     },
     {
@@ -139,31 +168,40 @@ def _push(msg: dict):
 
 
 def _get_components() -> list[dict]:
+    tk_ok, tk_err = _check_tankerkoenig()
     result = []
     for c in COMPONENTS:
         path = DATA_DIR / c["path"]
         if c.get("notebook_required") and not path.exists():
             status = "notebook_required"
+            hint = None
         elif path.exists():
             status = "ok"
-            size_kb = round(path.stat().st_size / 1024, 1)
+            hint = None
+        elif c.get("needs_tankerkoenig") and not tk_ok:
+            status = "data_missing"
+            hint = tk_err
         else:
             status = "missing"
-            size_kb = None
+            hint = None
+
         entry = {
-            "id":          c["id"],
-            "label":       c["label"],
-            "description": c.get("description", ""),
-            "path":        c["path"],
-            "status":      status,
-            "script":      c.get("script"),
-            "notebook":    c.get("notebook"),
+            "id":                c["id"],
+            "label":             c["label"],
+            "description":       c.get("description", ""),
+            "path":              c["path"],
+            "status":            status,
+            "script":            c.get("script"),
+            "notebook":          c.get("notebook"),
             "notebook_required": c.get("notebook_required", False),
+            "needs_tankerkoenig": c.get("needs_tankerkoenig", False),
         }
+        if hint:
+            entry["hint"] = hint
         if status == "ok":
-            entry["size_kb"] = round((DATA_DIR / c["path"]).stat().st_size / 1024, 1)
+            entry["size_kb"] = round(path.stat().st_size / 1024, 1)
             entry["mtime"] = datetime.fromtimestamp(
-                (DATA_DIR / c["path"]).stat().st_mtime
+                path.stat().st_mtime
             ).strftime("%Y-%m-%d %H:%M")
         result.append(entry)
     return result
@@ -187,7 +225,24 @@ async def get_status():
 
 
 async def _run_script(component_id: str, script_name: str):
+    # Pre-check: does this component need the tankerkönig raw data?
+    comp = next((c for c in COMPONENTS if c["id"] == component_id), {})
+    if comp.get("needs_tankerkoenig"):
+        ok, err = _check_tankerkoenig()
+        if not ok:
+            _push({"component": component_id, "status": "error",
+                   "progress": 100, "message": err})
+            _state["running"] = None
+            return False
+
     script_path = SCRIPTS_DIR / script_name
+    if not script_path.exists():
+        msg = f"Skript nicht gefunden: {script_path}"
+        _push({"component": component_id, "status": "error",
+               "progress": 100, "message": msg})
+        _state["running"] = None
+        return False
+
     _state["running"] = component_id
     _push({"component": component_id, "status": "running",
            "progress": 0, "message": f"Starte {script_name} …"})
@@ -200,19 +255,30 @@ async def _run_script(component_id: str, script_name: str):
                  "PYTHONUNBUFFERED": "1"},
         )
         line_count = 0
+        last_lines: list[str] = []   # rolling buffer for error context
         async for line_bytes in proc.stdout:
             line = line_bytes.decode("utf-8", errors="replace").rstrip()
             if line:
                 line_count += 1
+                last_lines.append(line)
+                if len(last_lines) > 10:
+                    last_lines.pop(0)
                 _push({"component": component_id, "status": "running",
                        "progress": min(90, line_count * 5),
-                       "message": line[:120]})
+                       "message": line[:200]})
         await proc.wait()
         success = proc.returncode == 0
-        _push({"component": component_id,
-               "status":   "done" if success else "error",
-               "progress": 100,
-               "message":  "Fertig!" if success else f"Fehler (exit {proc.returncode})"})
+        if success:
+            _push({"component": component_id, "status": "done",
+                   "progress": 100, "message": "Fertig!"})
+        else:
+            # Find the most informative error line (prefer Error/Exception lines)
+            error_lines = [l for l in last_lines
+                           if any(k in l for k in ("Error", "Exception", "error:", "Warning"))]
+            error_msg = (error_lines[-1] if error_lines else (last_lines[-1] if last_lines else ""))
+            error_msg = error_msg[:300] or f"Fehler (exit {proc.returncode})"
+            _push({"component": component_id, "status": "error",
+                   "progress": 100, "message": error_msg})
         return success
     except Exception as e:
         _push({"component": component_id, "status": "error",

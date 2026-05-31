@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 
 const STATUS_META = {
-  ok:                { icon: '✅', color: 'text-green-600', bg: 'bg-green-50',  label: 'Vorhanden'       },
-  missing:           { icon: '○',  color: 'text-gray-400',  bg: 'bg-gray-50',   label: 'Fehlt'           },
-  running:           { icon: '⟳',  color: 'text-blue-600',  bg: 'bg-blue-50',   label: 'Wird erstellt…'  },
-  pending:           { icon: '○',  color: 'text-gray-300',  bg: 'bg-gray-50',   label: 'Wartend'         },
-  done:              { icon: '✅', color: 'text-green-600', bg: 'bg-green-50',  label: 'Fertig'          },
-  error:             { icon: '❌', color: 'text-red-600',   bg: 'bg-red-50',    label: 'Fehler'          },
-  notebook_required: { icon: '⚠️', color: 'text-amber-600', bg: 'bg-amber-50',  label: 'Notebook nötig'  },
+  ok:                { icon: '✅', color: 'text-green-600', bg: 'bg-green-50',  label: 'Vorhanden'         },
+  missing:           { icon: '○',  color: 'text-gray-400',  bg: 'bg-gray-50',   label: 'Fehlt'             },
+  running:           { icon: '⟳',  color: 'text-blue-600',  bg: 'bg-blue-50',   label: 'Wird erstellt…'    },
+  pending:           { icon: '○',  color: 'text-gray-300',  bg: 'bg-gray-50',   label: 'Wartend'           },
+  done:              { icon: '✅', color: 'text-green-600', bg: 'bg-green-50',  label: 'Fertig'            },
+  error:             { icon: '❌', color: 'text-red-600',   bg: 'bg-red-50',    label: 'Fehler'            },
+  notebook_required: { icon: '⚠️', color: 'text-amber-600', bg: 'bg-amber-50',  label: 'Notebook nötig'    },
+  data_missing:      { icon: '📂', color: 'text-orange-600', bg: 'bg-orange-50', label: 'Rohdaten fehlen'  },
 }
 
 function ComponentRow({ comp, runStatus }) {
@@ -61,10 +62,17 @@ function ComponentRow({ comp, runStatus }) {
         </div>
       )}
 
-      {/* Error message */}
+      {/* Error message from script output */}
       {status === 'error' && live?.message && (
-        <p className="text-xs text-red-600 mt-1.5 bg-red-100 rounded px-2 py-1">
+        <p className="text-xs text-red-600 mt-1.5 bg-red-100 rounded px-2 py-1 whitespace-pre-wrap">
           {live.message}
+        </p>
+      )}
+
+      {/* data_missing: show the hint from the backend pre-check */}
+      {status === 'data_missing' && comp.hint && (
+        <p className="text-xs text-orange-700 mt-1.5 bg-orange-100 rounded px-2 py-1 whitespace-pre-wrap">
+          {comp.hint}
         </p>
       )}
     </div>
@@ -139,6 +147,8 @@ export default function Setup({ onDone }) {
     c => c.status === 'missing' && c.script
   ).length
 
+  const dataMissingCount = components.filter(c => c.status === 'data_missing').length
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -154,7 +164,7 @@ export default function Setup({ onDone }) {
             Notebooks müssen weiterhin manuell ausgeführt werden.
           </p>
           {!loading && (
-            <div className="mt-2 flex gap-3 text-xs">
+            <div className="mt-2 flex gap-3 text-xs flex-wrap">
               <span className="text-green-600 font-medium">
                 ✅ {components.filter(c => c.status === 'ok').length} vorhanden
               </span>
@@ -166,6 +176,11 @@ export default function Setup({ onDone }) {
               <span className="text-amber-600 font-medium">
                 ⚠️ {components.filter(c => c.status === 'notebook_required').length} brauchen Notebook
               </span>
+              {dataMissingCount > 0 && (
+                <span className="text-orange-600 font-medium">
+                  📂 {dataMissingCount} Rohdaten fehlen
+                </span>
+              )}
             </div>
           )}
         </div>

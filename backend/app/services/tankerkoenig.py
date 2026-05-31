@@ -59,8 +59,8 @@ class TankerkoenigService:
 
     async def get_price_history(self, fuel_type: str, days: int = 30) -> dict:
         try:
-            from .ml_service import ml_service, _FUEL_RATIO
-            hist = ml_service.get_diesel_price_history(days)
+            from .ml_service import get_diesel_price_history, _FUEL_RATIO
+            hist = get_diesel_price_history(days)
             if fuel_type == "diesel":
                 return hist
             ratio = _FUEL_RATIO.get(fuel_type, 1.0)

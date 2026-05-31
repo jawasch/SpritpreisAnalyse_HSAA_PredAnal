@@ -95,14 +95,21 @@ def build_summary() -> dict:
             "p95":   float(round(np.percentile(series, 95), 4)),
         }
 
-        # Histogramm (20 Bins)
-        hist, edges = np.histogram(series, bins=20)
+        # Histogramm (20 Bins) — clipped to realistic range to avoid outlier distortion
+        HIST_MIN, HIST_MAX = 0.80, 3.50   # €/L — covers 99.9% of real data
+        clipped = series[(series >= HIST_MIN) & (series <= HIST_MAX)]
+        n_outliers_low  = int((series < HIST_MIN).sum())
+        n_outliers_high = int((series > HIST_MAX).sum())
+        hist, edges = np.histogram(clipped, bins=20, range=(HIST_MIN, HIST_MAX))
         price_stats["histogram"] = [
             {"bin_left": float(round(edges[i], 3)),
              "bin_right": float(round(edges[i+1], 3)),
              "count": int(hist[i])}
             for i in range(len(hist))
         ]
+        price_stats["histogram_range"] = [HIST_MIN, HIST_MAX]
+        price_stats["n_outliers_low"]  = n_outliers_low
+        price_stats["n_outliers_high"] = n_outliers_high
 
     # ── Tagesverlauf Ø (Intraday-Profil) ──────────────────────────────────────
     intraday = []

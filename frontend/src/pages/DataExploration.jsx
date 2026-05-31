@@ -25,36 +25,65 @@ function QualityBadge({ ok, label }) {
   )
 }
 
-function HistogramBar({ bin, maxCount }) {
-  const pct = maxCount > 0 ? (bin.count / maxCount) * 100 : 0
-  const price = ((bin.bin_left + bin.bin_right) / 2).toFixed(2)
+function MockBadge() {
   return (
-    <div className="flex items-end gap-1 group relative" title={`${price} €/L: ${bin.count.toLocaleString('de-DE')} Messungen`}>
-      <div
-        className="bg-blue-400 hover:bg-blue-500 rounded-t transition-colors"
-        style={{ height: `${Math.max(2, pct)}%`, width: '100%' }}
-      />
-    </div>
+    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">
+      ⚠ Mock-Daten
+    </span>
   )
 }
 
-function PriceHistogram({ data }) {
+function RealBadge({ label = 'Echte Daten (B29-Parquet)' }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-green-100 text-green-700 border border-green-200">
+      ✓ {label}
+    </span>
+  )
+}
+
+function PriceHistogram({ data, nOutliersHigh = 0 }) {
   if (!data?.length) return null
-  const maxCount = Math.max(...data.map(b => b.count))
+
+  // Remove trailing empty bins (keep up to last non-zero count)
+  let lastNonZero = data.length - 1
+  while (lastNonZero > 0 && data[lastNonZero].count === 0) lastNonZero--
+  const visible = data.slice(0, lastNonZero + 1)
+  const maxCount = Math.max(...visible.map(b => b.count))
+
   return (
     <div>
-      <div className="flex items-end gap-0.5 h-28">
-        {data.map((bin, i) => (
-          <div key={i} className="flex-1">
-            <HistogramBar bin={bin} maxCount={maxCount} />
-          </div>
-        ))}
+      <div className="flex items-end gap-0.5 h-32">
+        {visible.map((bin, i) => {
+          const pct = maxCount > 0 ? (bin.count / maxCount) * 100 : 0
+          const price = ((bin.bin_left + bin.bin_right) / 2).toFixed(2)
+          if (bin.count === 0) {
+            // Show empty bin as transparent placeholder to preserve x-axis scale
+            return <div key={i} className="flex-1" />
+          }
+          return (
+            <div
+              key={i}
+              className="flex-1 flex items-end"
+              title={`${price} €/L: ${bin.count.toLocaleString('de-DE')} Stunden`}
+            >
+              <div
+                className="w-full bg-blue-400 hover:bg-blue-500 rounded-t transition-colors cursor-default"
+                style={{ height: `${Math.max(1, pct)}%` }}
+              />
+            </div>
+          )
+        })}
       </div>
       <div className="flex justify-between text-xs text-gray-400 mt-1">
-        <span>{data[0]?.bin_left.toFixed(2)} €/L</span>
-        <span>{data[Math.floor(data.length / 2)]?.bin_left.toFixed(2)} €/L</span>
-        <span>{data[data.length - 1]?.bin_right.toFixed(2)} €/L</span>
+        <span>{visible[0]?.bin_left.toFixed(2)} €/L</span>
+        <span>{visible[Math.floor(visible.length / 2)]?.bin_left.toFixed(2)} €/L</span>
+        <span>{visible[visible.length - 1]?.bin_right.toFixed(2)} €/L</span>
       </div>
+      {nOutliersHigh > 0 && (
+        <p className="text-[10px] text-amber-600 mt-2">
+          + {nOutliersHigh.toLocaleString('de-DE')} Messwerte {'>'} 3,50 €/L ausgeblendet
+        </p>
+      )}
     </div>
   )
 }
@@ -111,11 +140,12 @@ function WeekdayBar({ data }) {
 }
 
 export default function DataExploration() {
-  const [eda, setEda]           = useState(null)
-  const [heatmap, setHeatmap]   = useState(null)
-  const [history, setHistory]   = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [edaError, setEdaError] = useState(null)
+  const [eda,          setEda]          = useState(null)
+  const [heatmap,      setHeatmap]      = useState(null)
+  const [history,      setHistory]      = useState([])
+  const [historyMock,  setHistoryMock]  = useState(false)
+  const [loading,      setLoading]      = useState(true)
+  const [edaError,     setEdaError]     = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -125,7 +155,10 @@ export default function DataExploration() {
     ]).then(([edaData, hm, hist]) => {
       setEda(edaData)
       setHeatmap(hm)
-      setHistory(hist?.data || [])
+      const histData = hist?.data || []
+      setHistory(histData)
+      // station_count=25 means mock_data.py, =4 means real B29 clusters
+      setHistoryMock(histData.length > 0 && histData[0]?.station_count === 25)
       setLoading(false)
     })
   }, [])
@@ -151,7 +184,6 @@ export default function DataExploration() {
 
       <div className="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
 
-        {/* EDA nicht verfügbar */}
         {edaError && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
             <strong>EDA-Summary nicht gefunden.</strong> Bitte einmalig ausführen:{' '}
@@ -169,10 +201,13 @@ export default function DataExploration() {
           Erst wenn wir das wissen, können wir guten Gewissens modellieren.
         </Eli5>
 
-        {/* Zensus-Kacheln */}
+        {/* Datenzensus */}
         {cov && (
           <div>
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Datenzensus</h2>
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-sm font-semibold text-gray-700">Datenzensus</h2>
+              <RealBadge />
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard
                 label="Stationen gesamt"
@@ -203,7 +238,10 @@ export default function DataExploration() {
         {/* Datenqualität */}
         {q && (
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-1">Datenqualität</h2>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-sm font-semibold text-gray-700">Datenqualität</h2>
+              <RealBadge />
+            </div>
             <p className="text-xs text-gray-400 mb-4">
               Rohdaten aus 15.000+ Stationen enthalten systematische Probleme —
               hier die wichtigsten Kennzahlen auf einen Blick.
@@ -218,7 +256,7 @@ export default function DataExploration() {
               Im Tankerkönig-Rohdatensatz gibt es Einträge mit Preis 0 €/L — das passiert, wenn
               eine Tankstelle schließt und keinen Preis mehr meldet. Ausreißer über 2,50 €/L
               können echte Extrempreise sein (z. B. Krisen), aber auch Datenfehler.
-              Wir filtern alle Preise unter 0,80 €/L und über 2,50 €/L vor dem Training heraus.
+              Wir filtern alle Preise unter 0,80 €/L und über 3,50 €/L vor dem Training heraus.
             </Eli5>
           </div>
         )}
@@ -227,24 +265,35 @@ export default function DataExploration() {
         {ps && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-sm font-semibold text-gray-700 mb-1">Preisverteilung (Diesel, B29)</h2>
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-sm font-semibold text-gray-700">Preisverteilung (Diesel, B29)</h2>
+                <RealBadge />
+              </div>
               <p className="text-xs text-gray-400 mb-4">
-                Häufigkeit der beobachteten Stundenpreise über den gesamten Zeitraum.
-                Jeder Balken = ein Preisbereich · Höhe = Anzahl Stunden in diesem Bereich.
+                Häufigkeit der beobachteten Stundenpreise (0,80–3,50 €/L).
+                Jeder Balken = ein Preisbereich · Höhe = Anzahl Stunden.
+                {ps.n_outliers_high > 0 && ` Extreme Ausreißer separat ausgewiesen.`}
               </p>
-              <PriceHistogram data={ps.histogram} />
+              <PriceHistogram
+                data={ps.histogram}
+                nOutliersHigh={ps.n_outliers_high ?? 0}
+              />
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="text-sm font-semibold text-gray-700 mb-1">Preis-Kennzahlen</h2>
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-sm font-semibold text-gray-700">Preis-Kennzahlen</h2>
+                <RealBadge />
+              </div>
               <p className="text-xs text-gray-400 mb-4">Statistische Zusammenfassung aller Dieselpreise im B29-Datensatz.</p>
               <div className="space-y-2">
                 {[
-                  { label: 'Mittelwert',  val: ps.mean,  color: 'text-blue-600' },
+                  { label: 'Mittelwert',   val: ps.mean, color: 'text-blue-600' },
                   { label: 'Median (P50)', val: ps.p50,  color: 'text-gray-700' },
                   { label: 'Minimum',      val: ps.min,  color: 'text-green-600' },
                   { label: 'Maximum',      val: ps.max,  color: 'text-red-600' },
-                  { label: 'Std.-Abw.',   val: ps.std,  color: 'text-gray-500' },
-                  { label: 'P5 / P95',    val: `${ps.p05?.toFixed(3)} / ${ps.p95?.toFixed(3)}`, color: 'text-gray-500', raw: true },
+                  { label: 'Std.-Abw.',    val: ps.std,  color: 'text-gray-500' },
+                  { label: 'P5 / P95', val: `${ps.p05?.toFixed(3)} / ${ps.p95?.toFixed(3)}`,
+                    color: 'text-gray-500', raw: true },
                 ].map(row => (
                   <div key={row.label} className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">{row.label}</span>
@@ -261,7 +310,10 @@ export default function DataExploration() {
         {/* Intraday-Profil */}
         {eda?.intraday_profile?.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-1">Intraday-Preismuster</h2>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-sm font-semibold text-gray-700">Intraday-Preismuster</h2>
+              <RealBadge />
+            </div>
             <p className="text-xs text-gray-400 mb-4">
               Ø Dieselpreis je Tagesstunde über alle verfügbaren Daten.
               Grün = günstig · Gelb = mittel · Rot = teuer.
@@ -280,7 +332,10 @@ export default function DataExploration() {
         {/* Wochentagsmuster */}
         {eda?.weekday_pattern?.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-1">Wochentags-Preismuster</h2>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-sm font-semibold text-gray-700">Wochentags-Preismuster</h2>
+              <RealBadge />
+            </div>
             <p className="text-xs text-gray-400 mb-4">
               Samstag und Sonntag sind im Schnitt günstiger — Tankstellen konkurrieren stärker
               am Wochenende, wenn Freizeitfahrer preisbewusster sind.
@@ -292,10 +347,14 @@ export default function DataExploration() {
         {/* Langzeit-Trend */}
         {history.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-1">Langzeit-Preisverlauf (Diesel, B29)</h2>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-sm font-semibold text-gray-700">Langzeit-Preisverlauf (Diesel, B29)</h2>
+              {historyMock ? <MockBadge /> : <RealBadge label="Echte B29-Tagesmittel" />}
+            </div>
             <p className="text-xs text-gray-400 mb-4">
-              Tägliche Durchschnittspreise der letzten 12 Monate.
-              Erkennbar: saisonale Schwankungen, Marktreaktionen auf globale Ereignisse.
+              {historyMock
+                ? 'Zeigt aktuell Mock-Daten (Fallback). Backend-Verbindung oder Parquet-Pfad prüfen.'
+                : 'Tägliche Durchschnittspreise (Mittel der 4 B29-Cluster: Aalen, Schwäbisch Gmünd, Schorndorf, Stuttgart).'}
             </p>
             <PriceLineChart datasets={[{ fuelType: 'diesel', data: history }]} />
           </div>
@@ -304,11 +363,14 @@ export default function DataExploration() {
         {/* Wochentags-Stunden-Heatmap */}
         {heatmap && (
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-1">
-              Wochentag × Uhrzeit — Preisheatmap (Diesel)
-            </h2>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-sm font-semibold text-gray-700">
+                Wochentag × Uhrzeit — Preisheatmap (Diesel)
+              </h2>
+              <RealBadge />
+            </div>
             <p className="text-xs text-gray-400 mb-4">
-              Jede Zelle = Ø-Preis an diesem Wochentag zu dieser Uhrzeit.
+              Jede Zelle = Ø-Preis an diesem Wochentag zu dieser Uhrzeit (letzte 90 Tage).
               Grün = günstig · Rot = teuer · Hover für Details.
             </p>
             <TimeHeatmap data={heatmap.data} overallAvg={heatmap.overall_avg} />

@@ -23,13 +23,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).parent.parent
-PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+PROJECT_ROOT  = Path(__file__).parent.parent
+DATA_DIR      = Path(os.getenv("DATA_DIR", str(PROJECT_ROOT / "data")))
+PROCESSED_DIR = DATA_DIR / "processed"
 STATIONS_GEO  = PROCESSED_DIR / "stations_geo.parquet"
 
-# Allow override via env var (Docker: /app/data/tankerkoenig-data)
+# In Docker: DATA_DIR=/app/data → DATA_ROOT=/app/data/tankerkoenig-data (bind-mounted)
+# Locally:   DATA_DIR defaults to project/data → ../tankerkoenig-data via env override
 DATA_ROOT = Path(os.getenv("TANKERKOENIG_DATA_PATH",
-                            str(PROJECT_ROOT.parent / "tankerkoenig-data")))
+                            str(DATA_DIR / "tankerkoenig-data")))
 
 
 def find_csv_files(days: int) -> list[Path]:

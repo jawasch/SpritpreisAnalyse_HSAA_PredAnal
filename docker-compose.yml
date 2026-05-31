@@ -10,6 +10,11 @@ services:
     environment:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
+      # Override .env value — in Docker the raw data is mounted at this path
+      TANKERKOENIG_DATA_PATH: /app/data/tankerkoenig-data
+      # Auto-build missing data files (EDA summary, oil prices, recent station prices)
+      # on every container start. Only builds what's missing — safe to leave on.
+      RUN_SETUP_ON_START: "true"
     ports:
       - "8000:8000"
     volumes:
@@ -17,7 +22,7 @@ services:
       - ./data:/app/data
       - ./notebooks:/app/notebooks:ro
       - ./scripts:/app/scripts:ro
-      - ../../tankerkoenig-data:/app/data/tankerkoenig-data:ro
+      - ../tankerkoenig-data:/app/data/tankerkoenig-data:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
 
   # Frontend
