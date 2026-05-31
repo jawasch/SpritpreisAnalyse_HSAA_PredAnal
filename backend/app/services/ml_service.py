@@ -207,6 +207,7 @@ class MLService:
         self._sp_df: pd.DataFrame | None = None
         self._b29_df: pd.DataFrame | None = None
         self._geo_df: pd.DataFrame | None = None   # stations_geo.parquet cache
+        self._ag_df: pd.DataFrame | None = None    # combined all-germany parquet cache
 
     # ── Loaders ────────────────────────────────────────────────────────────────
 
@@ -472,6 +473,125 @@ class MLService:
         }
 
 
+    def _load_all_germany_combined(self) -> pd.DataFrame:
+        """
+        Load B29 + Spedition parquets and derive E5/E10 via fuel ratio.
+        Returns a 27-column wide DataFrame (9 locations × 3 fuel types),
+        matching the column structure used during all_germany model training.
+        """
+        if self._ag_df is not None:
+            return self._ag_df
+
+        b29_df = pd.read_parquet(B29_PARQUET)    # diesel_Aalen, diesel_Schwäbisch Gmünd, …
+        sp_df  = pd.read_parquet(SPEDITION_PARQUET)  # diesel_Route_E, …
+
+        diesel_df = b29_df.join(sp_df, how="inner")  # 9 diesel cols, aligned on timestamp
+
+        frames = [diesel_df]
+        for ft in ("e5", "e10"):
+            ratio = _FUEL_RATIO[ft]
+            ft_df = diesel_df.rename(
+                columns={c: c.replace("diesel_", f"{ft}_") for c in diesel_df.columns}
+            ) * ratio
+            frames.append(ft_df)
+
+        self._ag_df = pd.concat(frames, axis=1).sort_index()
+        logger.info("[ml_service] All-Germany combined parquet: shape=%s, last=%s",
+                    self._ag_df.shape, self._ag_df.index[-1])
+        return self._ag_df
+
+    def predict_all_germany(self, fuel_type: str) -> dict:
+        """
+        Run inference with a trained all-Germany model.
+        Returns per-location 72h forecast in GeoViz station format.
+        """
+        model_path = ALL_GERMANY_MODELS.get(fuel_type)
+        if not model_path or not model_path.exists():
+            logger.warning("[ml_service] all_germany_%s_mlp.joblib not found.", fuel_type)
+            return {"model_available": False, "fuel_type": fuel_type, "stations": []}
+
+        import joblib
+        art = joblib.load(model_path)
+        wide = self._load_all_germany_combined()
+
+        feat = _build_features_all_germany(wide.iloc[-300:])   # 300h > max lag 168h
+        feature_cols = art["feature_columns"]
+        last_row = feat.iloc[[-1]]
+        # Align columns — only keep features the model knows
+        X = last_row[[c for c in feature_cols if c in last_row.columns]]
+        if X.shape[1] != len(feature_cols):
+            missing = [c for c in feature_cols if c not in last_row.columns]
+            logger.warning("[ml_service] %d feature columns missing from inference frame: %s…",
+                           len(missing), missing[:3])
+            return {"model_available": False, "fuel_type": fuel_type,
+                    "error": f"{len(missing)} feature columns missing", "stations": []}
+
+        y_pred = art["scaler_y"].inverse_transform(
+            art["model"].predict(art["scaler_X"].transform(X))
+        )[0]
+
+        target_cols = art["target_columns"]  # e.g. "diesel_Aalen_t+1h"
+        now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+
+        # Locations present in this model's target columns
+        prefix = f"{fuel_type}_"
+        loc_set: set[str] = set()
+        for col in target_cols:
+            loc = col.replace(prefix, "").rsplit("_t+", 1)[0]
+            loc_set.add(loc)
+
+        # Build per-location forecast {loc: {h: price}}
+        loc_forecast: dict[str, dict[int, float]] = {loc: {} for loc in loc_set}
+        for i, col in enumerate(target_cols):
+            parts = col.replace(prefix, "").rsplit("_t+", 1)
+            if len(parts) != 2:
+                continue
+            loc, h_str = parts
+            h = int(h_str.rstrip("h"))
+            if loc in loc_forecast:
+                loc_forecast[loc][h] = float(round(y_pred[i], 4))
+
+        # Resolve lat/lng for each location
+        def _loc_latlon(loc: str) -> tuple[float, float]:
+            if loc in _B29_CENTROIDS:
+                c = _B29_CENTROIDS[loc]
+                return c["lat"], c["lng"]
+            if loc in ROUTE_META:
+                m = ROUTE_META[loc]
+                return m["lat"], m["lng"]
+            return 48.84, 10.09  # fallback: Aalen
+
+        stations_out = []
+        for loc in sorted(loc_set):
+            lat, lng = _loc_latlon(loc)
+            fcast = loc_forecast[loc]
+            prices_list = [
+                {
+                    "timestamp": (now + timedelta(hours=h)).isoformat(),
+                    "price":     fcast.get(h, fcast.get(1, 1.9)),
+                }
+                for h in range(1, 25)
+            ]
+            stations_out.append({
+                "id":     f"ag_{loc.lower().replace(' ','_').replace('ä','a').replace('ü','u')}",
+                "name":   loc,
+                "brand":  "Grid",
+                "lat":    lat,
+                "lng":    lng,
+                "prices": prices_list,
+            })
+
+        return {
+            "model_available": True,
+            "fuel_type":       fuel_type,
+            "stations":        stations_out,
+            "model":           {
+                "name":         f"All-Germany {fuel_type.upper()} MLP",
+                "architecture": art.get("architecture", "(128,64)"),
+                "val_mae":      art.get("val_mae"),
+            },
+        }
+
     def get_geo_timeseries_real(
         self,
         fuel_type: str = "diesel",
@@ -567,8 +687,26 @@ class MLService:
                 },
             }
 
-        # ── All-Germany scenario (uses grid model if available) ──────────────
-        # (Falls through to "all" if national model not yet trained)
+        # ── All-Germany grid model scenario ──────────────────────────────────
+        if scenario == "germany":
+            ag = self.predict_all_germany(fuel_type)
+            if ag.get("model_available"):
+                return {
+                    "ok":       True,
+                    "stations": ag["stations"],
+                    "meta": {
+                        "fuel_type":       fuel_type,
+                        "date":            str(ref_date),
+                        "interval":        "hour",
+                        "n_stations":      len(ag["stations"]),
+                        "scenario":        "germany",
+                        "model_available": True,
+                        "model_name":      ag["model"]["name"],
+                        "data_source":     "all_germany_mlp.joblib",
+                    },
+                }
+            # Model not trained yet — fall through to "all" stations with notice
+            logger.info("[ml_service] germany model not available, falling back to 'all' scenario.")
 
         # ── All stations — estimate prices from parquet + brand offset ───────
         geo_df = self._load_stations_geo()
@@ -628,6 +766,46 @@ class MLService:
 
 # Module-level singleton
 ml_service = MLService()
+
+
+def _build_features_all_germany(df_wide: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build a 519-column feature matrix from a 27-column wide hourly DataFrame
+    (9 locations × 3 fuel types). Exact replica of build_features_all_germany()
+    in scripts/data_transform_all_germany.py for web inference.
+    """
+    fuel_prefixes = ("diesel_", "e5_", "e10_")
+    all_price_cols = [
+        c for c in df_wide.columns
+        if any(c.startswith(p) for p in fuel_prefixes)
+    ]
+    series: dict[str, pd.Series] = {}
+
+    for col in all_price_cols:
+        s = df_wide[col]
+
+        for lag in LAG_HOURS:
+            series[f"{col}_lag_{lag}h"] = s.shift(lag)
+
+        series[f"{col}_price_t"] = s
+        series[f"{col}_diff"]    = s - s.shift(1)
+
+        for w in ROLLING_WINDOWS:
+            series[f"{col}_roll_mean_{w}h"] = s.rolling(w, min_periods=w).mean()
+            series[f"{col}_roll_std_{w}h"]  = s.rolling(w, min_periods=w).std()
+
+        series[f"{col}_trend"]    = _rolling_linear_slope(s, TREND_WINDOW)
+        series[f"{col}_momentum"] = s.shift(1) - s.shift(24)
+
+    idx = df_wide.index
+    series["hour_sin"]   = pd.Series(np.sin(2 * np.pi * idx.hour / 24),     index=idx)
+    series["hour_cos"]   = pd.Series(np.cos(2 * np.pi * idx.hour / 24),     index=idx)
+    series["dow_sin"]    = pd.Series(np.sin(2 * np.pi * idx.dayofweek / 7), index=idx)
+    series["dow_cos"]    = pd.Series(np.cos(2 * np.pi * idx.dayofweek / 7), index=idx)
+    series["is_weekend"] = pd.Series((idx.dayofweek >= 5).astype(np.int8),  index=idx)
+    series["is_holiday"] = _is_holiday(idx).astype(np.int8)
+
+    return pd.DataFrame(series, index=idx)
 
 
 def get_diesel_price_history(days: int = 30) -> dict:
@@ -693,6 +871,40 @@ def get_heatmap_from_parquet(fuel_type: str) -> dict:
         "fuel_type":   fuel_type,
         "overall_avg": round(overall_avg, 3),
         "data":        cells,
+    }
+
+
+def get_short_term_forecast(fuel_type: str, hours: int = 72) -> dict:
+    """
+    72h forecast built from parquet current price + heatmap seasonal pattern.
+    Uses the per-hour relative deviation from get_heatmap_from_parquet() to
+    project a realistic curve at real market price levels (~2.0 EUR/L).
+    Not a trained ML model — seasonal naive with real base price.
+    """
+    hm = get_heatmap_from_parquet(fuel_type)
+    base = hm["overall_avg"]
+    dev_by_slot: dict[tuple[int, int], float] = {
+        (cell["weekday"], cell["hour"]): cell["relative"]
+        for cell in hm["data"]
+    }
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    forecast = []
+    for h in range(hours):
+        ts = now + timedelta(hours=h)
+        dev = dev_by_slot.get((ts.weekday(), ts.hour), 0.0)
+        price = round(base + dev, 3)
+        forecast.append({
+            "timestamp":       ts.isoformat(),
+            "predicted_price": price,
+            "lower":           round(price - 0.012, 3),
+            "upper":           round(price + 0.012, 3),
+        })
+    return {
+        "ok":            True,
+        "fuel_type":     fuel_type,
+        "current_price": round(base, 3),
+        "data_source":   "b29_parquet_seasonal",
+        "forecast":      forecast,
     }
 
 

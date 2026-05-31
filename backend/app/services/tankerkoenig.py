@@ -58,13 +58,22 @@ class TankerkoenigService:
             return r.json()
 
     async def get_price_history(self, fuel_type: str, days: int = 30) -> dict:
-        if fuel_type == "diesel":
-            try:
-                from .ml_service import ml_service
-                return ml_service.get_diesel_price_history(days)
-            except Exception:
-                pass
-        return mock_data.get_price_history(fuel_type, days)
+        try:
+            from .ml_service import ml_service, _FUEL_RATIO
+            hist = ml_service.get_diesel_price_history(days)
+            if fuel_type == "diesel":
+                return hist
+            ratio = _FUEL_RATIO.get(fuel_type, 1.0)
+            scaled = [
+                {**e,
+                 "price": round(e["price"] * ratio, 3),
+                 "min":   round(e["min"]   * ratio, 3),
+                 "max":   round(e["max"]   * ratio, 3)}
+                for e in hist["data"]
+            ]
+            return {"ok": True, "fuel_type": fuel_type, "data": scaled}
+        except Exception:
+            return mock_data.get_price_history(fuel_type, days)
 
     # ── Analytics ───────────────────────────────────────────────────────────
 
@@ -107,7 +116,11 @@ class TankerkoenigService:
     # ── Predictions ─────────────────────────────────────────────────────────
 
     async def get_predictions(self, fuel_type: str, hours: int = 72) -> dict:
-        return mock_data.get_predictions(fuel_type, hours)
+        try:
+            from .ml_service import get_short_term_forecast
+            return get_short_term_forecast(fuel_type, hours)
+        except Exception:
+            return mock_data.get_predictions(fuel_type, hours)
 
     async def get_live_prices_for_uuids(self, uuids: list[str]) -> dict[str, float]:
         """Fetch current diesel price for each UUID from the live TK API."""
