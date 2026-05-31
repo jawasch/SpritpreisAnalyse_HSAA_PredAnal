@@ -35,7 +35,32 @@ _ELI5_METRICS = {
 }
 
 
+# ── MLP defaults (single source of truth) ────────────────────────────────────
+
+MLP_DEFAULTS: dict = dict(
+    early_stopping=True,
+    validation_fraction=0.1,
+    n_iter_no_change=100,   # war 50, für große modelle als test
+    tol=1e-5,               # war 1e-4, für große modelle als test
+    max_iter=2000,          # war 1000, für große modelle als test
+    learning_rate='adaptive',
+    learning_rate_init=0.001,
+    random_state=42,
+)
+
+
 # ── Training ─────────────────────────────────────────────────────────────────
+
+def build_mlp(
+    hidden_layer_sizes: tuple = (256, 128),
+    **kwargs,
+) -> MLPRegressor:
+    """Return an unfitted MLPRegressor with MLP_DEFAULTS merged with kwargs."""
+    return MLPRegressor(
+        hidden_layer_sizes=hidden_layer_sizes,
+        **{**MLP_DEFAULTS, **kwargs},
+    )
+
 
 def train_mlp(
     X_train_sc: np.ndarray,
@@ -44,23 +69,11 @@ def train_mlp(
     **kwargs,
 ) -> MLPRegressor:
     """
-    Train an MLPRegressor with sensible defaults for multi-output fuel-price forecasting.
+    Build and fit an MLPRegressor.
 
-    Override any parameter via kwargs (e.g. max_iter=300, learning_rate_init=0.005).
+    Override any MLP_DEFAULTS parameter via kwargs (e.g. max_iter=300).
     """
-    params = dict(
-        activation="relu",
-        solver="adam",
-        learning_rate_init=0.001,
-        max_iter=500,
-        early_stopping=True,
-        validation_fraction=0.1,
-        random_state=42,
-        n_iter_no_change=20,
-        verbose=False,
-    )
-    params.update(kwargs)
-    model = MLPRegressor(hidden_layer_sizes=hidden_layer_sizes, **params)
+    model = build_mlp(hidden_layer_sizes=hidden_layer_sizes, **kwargs)
     model.fit(X_train_sc, y_train_sc)
     return model
 
@@ -170,6 +183,7 @@ def run_architecture_comparison(
     X_val_sc: np.ndarray,
     y_val: np.ndarray,
     scaler_y,
+    **kwargs,
 ) -> pd.DataFrame:
     """
     Train one MLPRegressor per architecture and evaluate on the validation set.
@@ -182,6 +196,7 @@ def run_architecture_comparison(
     X_val_sc        : scaled validation features
     y_val           : unscaled validation targets (for metric computation)
     scaler_y        : fitted StandardScaler for inverse-transforming predictions
+    **kwargs        : forwarded to train_mlp / MLPRegressor (override MLP_DEFAULTS)
 
     Returns
     -------
@@ -193,7 +208,7 @@ def run_architecture_comparison(
         arch_str = str(arch)
         print(f"  Training {arch_str:<25} …", end=" ", flush=True)
 
-        model = train_mlp(X_train_sc, y_train_sc, hidden_layer_sizes=arch)
+        model = train_mlp(X_train_sc, y_train_sc, hidden_layer_sizes=arch, **kwargs)
 
         y_pred = scaler_y.inverse_transform(model.predict(X_val_sc))
         mae  = mean_absolute_error(y_val, y_pred)
