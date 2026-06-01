@@ -1,5 +1,5 @@
 """
-Model training and evaluation helpers for spedition_mlp.ipynb.
+Model training and evaluation helpers for spedition_mlp.ipynb and b29_fleet_mlp.ipynb.
 
 Encapsulates MLPRegressor training, metric computation (MAE, RMSE, R²)
 with ELI5 explanations, and architecture comparison sweeps.
@@ -35,6 +35,80 @@ _ELI5_METRICS = {
 }
 
 
+# ── B29 metric helpers ────────────────────────────────────────────────────────
+
+def compute_metrics_by_horizon(
+    y_true: pd.DataFrame,
+    y_pred: pd.DataFrame,
+    base_targets: list[str],
+    horizon: int,
+) -> pd.DataFrame:
+    """
+    Compute MAE, RMSE, R² for each forecast horizon step (1 … horizon).
+
+    Parameters
+    ----------
+    y_true       : ground-truth target DataFrame (columns: {cluster}_t+{h}h)
+    y_pred       : predicted target DataFrame (same columns and index as y_true)
+    base_targets : list of cluster/station column prefixes (without _t+{h}h suffix)
+    horizon      : maximum forecast horizon in hours
+
+    Returns
+    -------
+    pd.DataFrame indexed by horizon_h with columns MAE, RMSE, R2
+    """
+    rows = []
+    for step in range(1, horizon + 1):
+        cols = [f"{c}_t+{step}h" for c in base_targets]
+        mae  = mean_absolute_error(y_true[cols], y_pred[cols], multioutput="uniform_average")
+        rmse = np.sqrt(mean_squared_error(y_true[cols], y_pred[cols], multioutput="uniform_average"))
+        r2   = r2_score(y_true[cols], y_pred[cols], multioutput="uniform_average")
+        rows.append({"horizon_h": step, "MAE": mae, "RMSE": rmse, "R2": r2})
+    return pd.DataFrame(rows).set_index("horizon_h")
+
+
+def build_persistence_baseline(
+    X_data: pd.DataFrame,
+    y_data: pd.DataFrame,
+    base_targets: list[str],
+    horizon: int,
+) -> pd.DataFrame:
+    """
+    Persistence baseline: last known price repeated for all forecast horizons.
+
+    Parameters
+    ----------
+    X_data       : feature DataFrame containing {cluster}_price_t columns
+    y_data       : target DataFrame (used only for index and columns)
+    base_targets : list of cluster/station prefixes
+    horizon      : maximum forecast horizon in hours
+
+    Returns
+    -------
+    pd.DataFrame with same shape as y_data, filled with the last known price per cluster
+    """
+    pred = pd.DataFrame(index=y_data.index, columns=y_data.columns, dtype=float)
+    for step in range(1, horizon + 1):
+        for cluster in base_targets:
+            pred[f"{cluster}_t+{step}h"] = X_data[f"{cluster}_price_t"].values
+    return pred
+
+
+def print_metrics_summary(name: str, metrics_df: pd.DataFrame) -> None:
+    """
+    Print a compact per-horizon metrics table plus the overall mean.
+
+    Parameters
+    ----------
+    name       : label shown in the header (e.g. 'MLP', 'Persistence')
+    metrics_df : DataFrame returned by compute_metrics_by_horizon()
+    """
+    print(f"\n{name} — Performance je Horizont:")
+    print(metrics_df.head(6).round(5))
+    print("  ...")
+    print(metrics_df.tail(3).round(5))
+    m = metrics_df.mean()
+    print(f"\n{name} Gesamt (Ø):  MAE={m['MAE']:.5f} €/L  RMSE={m['RMSE']:.5f}  R²={m['R2']:.4f}")
 # ── MLP defaults (single source of truth) ────────────────────────────────────
 
 MLP_DEFAULTS: dict = dict(

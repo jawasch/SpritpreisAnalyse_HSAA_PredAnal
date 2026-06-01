@@ -6,47 +6,42 @@ uvicorn[standard]==0.27.0
 python-multipart==0.0.6
 
 # ========================================
-# DATABASE
+# DATA PROCESSING
+# Versions pinned to match the Jupyter training environment:
+#   numpy 2.4.4 + scikit-learn 1.8.0 (nix python3-3.13.12-env)
+# Models (*.joblib) were saved with these versions — loading with older
+# numpy 1.x causes "MT19937 is not a known BitGenerator module".
+# ========================================
+numpy==2.4.4
+pandas==2.2.3
+scikit-learn==1.8.0
+pyarrow==20.0.0
+fastparquet==2024.11.0
+
+# ========================================
+# MACHINE LEARNING (active in backend)
+# ========================================
+statsmodels==0.14.4
+holidays==0.64
+
+# ========================================
+# DATABASE (schema kept as docs, not used at runtime)
 # ========================================
 sqlalchemy==2.0.25
 psycopg2-binary==2.9.9
 alembic==1.13.1
-pyarrow==11.0.0
-fastparquet==2024.6.0
-
-# ========================================
-# DATA PROCESSING
-# ========================================
-pandas==2.1.4
-numpy==1.26.3
-matplotlib==3.8.2
-seaborn==0.13.1
-
-# ========================================
-# MACHINE LEARNING & PREDICTIVE ANALYTICS
-# ========================================
-scikit-learn==1.4.0
-prophet==1.1.5              # Facebook Prophet for time series forecasting
-statsmodels==0.14.1         # ARIMA/SARIMAX models
-tensorflow==2.15.0          # Deep Learning (LSTM)
-keras==2.15.0
 
 # ========================================
 # API CLIENTS & EXTERNAL SERVICES
 # ========================================
-requests==2.31.0
 httpx==0.26.0
+requests==2.31.0
 
 # ========================================
 # VALIDATION & SERIALIZATION
 # ========================================
 pydantic==2.5.3
 pydantic-settings==2.1.0
-
-# ========================================
-# TASK SCHEDULING
-# ========================================
-apscheduler==3.10.4
 
 # ========================================
 # UTILITIES
@@ -61,15 +56,13 @@ pytz==2023.3
 loguru==0.7.2
 
 # ========================================
-# CACHING (Optional - for production)
+# JUPYTER (for /api/v1/notebooks HTML rendering)
 # ========================================
-# redis==5.0.1              # Uncomment if using Redis for caching
-# hiredis==2.3.2            # Redis performance boost
-
-# ========================================
-# DATA VISUALIZATION (Backend)
-# ========================================
-plotly==5.18.0
+jupyter==1.0.0
+nbformat==5.9.2
+nbconvert==7.14.1
+ipykernel==6.29.0
+ipython==8.20.0
 
 # ========================================
 # DEVELOPMENT & TESTING
@@ -80,12 +73,3 @@ pytest-cov==4.1.0
 black==24.1.1
 flake8==7.0.0
 mypy==1.8.0
-httpx==0.26.0              # For testing API calls
-
-# ========================================
-# JUPYTER & NOTEBOOKS (for data analysis)
-# ========================================
-jupyter==1.0.0
-notebook==7.0.7
-ipykernel==6.29.0
-ipython==8.20.0
