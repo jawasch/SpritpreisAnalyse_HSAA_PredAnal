@@ -2,10 +2,15 @@
 ## Hochschule Aalen | Modul Predictive Analytics | Semester 1
 
 > **Quellcode:** 
+
 [`notebooks/spedition_mlp.ipynb`][nb] 
+
 [`scripts/data_transform_spedition.py`][dts] 
+
 [`scripts/model_utils.py`][mu] 
+
 [`scripts/viz_utils.py`][vu]
+
 
 [nb]:  ../notebooks/spedition_mlp.ipynb
 [dts]: ../scripts/data_transform_spedition.py
@@ -183,9 +188,13 @@ Die Euklidische Distanz auf Koordinaten liefert für geographische Abstände sys
 Drei Beobachtungen aus der EDA sind für das Modell relevant:
 
 1. **Hohe Korrelation zwischen allen Stationen** (r > 0,95): Der Rohölpreis treibt alle Preise gemeinsam. Lokale Unterschiede sind gering, aber vorhersagbar.
-![alt text](image.png)
+
+![Korrelationsmatrix: Dieselpreise](image.png)
+
 2. **Intraday-Muster**: Preise steigen typischerweise morgens und fallen abends. Dieses Muster wiederholt sich täglich und ist ein wertvolles Signal für das Modell.
-![alt text](image-1.png)
+
+![Intraday-Profil: Mittlerer Dieselpreis je Stunde und Region](image-1.png)
+
 3. **Fehlende Stunden**: Tankstellen melden Preise nur bei Änderungen. Stunden ohne Meldung werden per **Vorwärtsfüllung** (letzter bekannter Preis) aufgefüllt.
 
 ---
@@ -196,8 +205,9 @@ Drei Beobachtungen aus der EDA sind für das Modell relevant:
 
 Die gesamte Vorbereitung ist in der Klasse [`SpeditionDataLoader`][dts] gekapselt:
 
+
 ```
-87 GB CSV-Dateien (parallel einlesen)
+87 GB CSV-Dateien (parallel einlesen und filtern)
         ↓
   Filterung auf 5 Stations-UUIDs
         ↓
@@ -211,6 +221,7 @@ Die gesamte Vorbereitung ist in der Klasse [`SpeditionDataLoader`][dts] gekapsel
         ↓
   Zeitlicher Split: Train | Val | Test
 ```
+
 
 Das parallele CSV-Einlesen (via `ThreadPoolExecutor`) reduziert die Ladezeit erheblich. Ein **Parquet-Cache** verhindert, dass der 87-GB-Scan bei jeder Notebook-Ausführung wiederholt werden muss.
 
@@ -244,6 +255,8 @@ Pro Zeitschritt und Station werden folgende Merkmale berechnet. Somit ergeben si
 | **Validierung** | Jan 2022 – Dez 2023 | 17.520 |
 | **Test** | Jan 2024 – heute | 20.829 |
 | **Gesamt** | |104.508 |
+
+
 ### Normierung
 
 Alle Features werden mit dem **StandardScaler** auf Mittelwert 0 und Standardabweichung 1 normiert — damit kein Merkmal allein durch seine Größenordnung das Training dominiert. Kritisch: Der Scaler wird **ausschließlich auf den Trainingsdaten** angepasst (`fit`) und dann auf Validierung und Test nur angewendet (`transform`). Würde man den Scaler auf allen Daten anpassen, flössen Zukunftsinformationen ins Training und es würde zum **Datenleck** kommen.
@@ -360,7 +373,7 @@ Sieben Netzwerkgrößen wurden in zwei Experimenten auf dem Validierungsdatensat
 | (128, 256) | 0,05227 | 0,06809 | 1.056 | 138.600 |
 | (64, 128, 256) | 0,05263 | 0,06929 | 944 | 140.392 |
 
-![alt text](image-4.png)
+![Evaluationsparameter Exp 1](image-4.png)
 
 **Experiment 2 — Standardparameter**
 
@@ -373,7 +386,7 @@ Sieben Netzwerkgrößen wurden in zwei Experimenten auf dem Validierungsdatensat
 | (128, 256) | 0,04137 | 0,05409 | 204 | 138.600 |
 | (64, 128, 256) | 0,04999 | 0,06708 | 305 | 140.392 |
 
-![alt text](image-3.png)
+![Evaluationsparameter Exp 2](image-3.png)
 
 **Wichtige Beobachtungen:**
 
@@ -467,7 +480,7 @@ Der **Spearman-Rangkorrelationskoeffizient** ρₛ misst, wie gut zwei Rangreihe
 
 Der Testdatensatz umfasst **20.829 Einträge** (Jan 2024 – Mai 2026) — Daten, die das Modell während des Trainings nie gesehen hat.
 
-| Metrik | Baseline (Dummy) | MLP Validation | MLP **Test** |
+| Metrik | Baseline (Dummy) | MLP Validation (32,) | MLP **Test (32,)** |
 |---|---|---|---|
 | MAE | 0,454 €/L | 0,030 €/L | **0,026 €/L** |
 | RMSE | 0,485 €/L | 0,041 €/L | **0,036 €/L** |
@@ -556,7 +569,7 @@ Die Funktion `recommend_cheapest_station` (in [`model_utils.py`][mu]) gibt dem D
 ┌─ Dispatch Recommendation ────────────────────────────────────────┐
 │  Horizont     : +8h                                              │
 │  Günstigste   : Route_NE        → €1.901/L                       │
-│  Ranking      : NE (1.901) > NW (1.936) > N (1.962) > ...       │
+│  Ranking      : NE (1.901) > NW (1.936) > N (1.962) > ...        │
 │  Ersparnis vs. teuerste Station: ~€17.25 / LKW-Befüllung (150 L) │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -607,7 +620,7 @@ Das Zusammenfassen von bis zu 80 Einzelstationen zu einem Clusterdurchschnitt **
 
 **Datenqualität — teilweise Ausreißerbehandlung**
 
-Die Pipeline filtert lediglich offensichtlich ungültige Einträge heraus (Preis < 0,50 €/L). Eine statistische Ausreißererkennung — z. B. per IQR-Methode oder oberer Schranke — wurde zwar in einer frühen Explorationsphase untersucht (`data-exploration.ipynb`), aber nicht in die Produktionspipeline übernommen. Vereinzelte Fehlmeldungen (z. B. ein irrtümlich eingetragener Preis von 4,00 €/L statt 1,90 €/L) könnten das Training verzerren. Für die fünf ausgewählten Markenstationen mit je über 100.000 Ereignissen ist das Risiko überschaubar, aber nicht ausgeschlossen.
+Die Pipeline filtert lediglich offensichtlich ungültige Einträge heraus (Preis < 0,50 €/L). Eine statistische Ausreißererkennung — z. B. per oberer Schranke — wurde zwar in einer frühen Explorationsphase untersucht (`data-exploration.ipynb`), aber nicht in die Produktionspipeline übernommen. Vereinzelte Fehlmeldungen (z. B. ein irrtümlich eingetragener Preis von 4,00 €/L statt 1,90 €/L) könnten das Training verzerren. Für die fünf ausgewählten Markenstationen mit je über 100.000 Ereignissen ist das Risiko überschaubar, aber nicht ausgeschlossen.
 
 **Statische Datenbasis — kein dynamisches Nachladen**
 
