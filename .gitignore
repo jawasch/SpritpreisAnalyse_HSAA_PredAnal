@@ -53,15 +53,6 @@ coverage/
 htmlcov/
 .pytest_cache/
 
-# Data
-data/raw/*.csv
-data/raw/*.json
-data/processed/*.csv
-data/processed/*.parquet
-data/models/*.pkl
-data/models/*.h5
-data/models/*.pb
-data/models/*.joblib
 # Logs
 *.log
 logs/
@@ -78,6 +69,3 @@ docker-compose.override.yml
 *.tmp
 *.temp
 .temp/
-
-# Models
-*.joblib

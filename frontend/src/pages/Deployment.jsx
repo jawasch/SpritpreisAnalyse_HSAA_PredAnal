@@ -4,9 +4,9 @@ import Eli5 from '../components/Eli5'
 import MultiStationForecastChart from '../components/charts/MultiStationForecastChart'
 import PickAccuracyChart from '../components/charts/PickAccuracyChart'
 import PixelPattern from '../components/ui/PixelPattern'
-import { formatPrice, formatEuro, formatNumber, formatPct } from '../utils/format'
-
-const ARBEITSTAGE = 250
+import DispatchTable from '../components/deployment/DispatchTable'
+import FlottenKalkulator from '../components/deployment/FlottenKalkulator'
+import { formatPrice, formatNumber, formatPct, formatEuro } from '../utils/format'
 
 function MetricChip({ label, value }) {
   return (
@@ -22,112 +22,6 @@ function SavingsBadge({ text }) {
     <span className="inline-flex items-center text-xs bg-green-100 text-green-800 rounded-full px-3 py-1 font-semibold">
       {text}
     </span>
-  )
-}
-
-function FlottenKalkulator({ defaultTrucks = 25, defaultDailyLiters = 150, savingsPerLiter = 0.02 }) {
-  const [numTrucks,   setNumTrucks]   = useState(defaultTrucks)
-  const [dailyLiters, setDailyLiters] = useState(defaultDailyLiters)
-  const savingsPerTruckDay = dailyLiters * savingsPerLiter
-  const savingsPerDay      = numTrucks * savingsPerTruckDay
-  const savingsPerYear     = savingsPerDay * ARBEITSTAGE
-
-  return (
-    <div className="bg-white border border-gray-200 p-5 shadow-sm">
-      <h3 className="text-sm font-semibold text-gray-700 mb-1">Flottenkosten-Kalkulator</h3>
-      <p className="text-xs text-gray-400 mb-4">
-        Potenzielle Einsparung bei optimiertem Dispatch (Ø {(savingsPerLiter * 100).toFixed(1)} ct/L
-        Modell-Vorteil · {ARBEITSTAGE} Arbeitstage/Jahr)
-      </p>
-      <div className="grid grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Fahrzeuge: <span className="text-brand-orange font-semibold">{numTrucks}</span>
-            </label>
-            <input type="range" min="1" max="50" value={numTrucks}
-              onChange={e => setNumTrucks(Number(e.target.value))}
-              className="w-full accent-brand-orange"
-            />
-            <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>1</span><span>50</span></div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Tagesverbrauch je LKW: <span className="text-brand-orange font-semibold">{dailyLiters} L</span>
-            </label>
-            <input type="range" min="50" max="300" step="10" value={dailyLiters}
-              onChange={e => setDailyLiters(Number(e.target.value))}
-              className="w-full accent-brand-orange"
-            />
-            <div className="flex justify-between text-xs text-gray-400 mt-0.5"><span>50 L</span><span>300 L</span></div>
-          </div>
-        </div>
-        <div className="space-y-2">
-          {[
-            { label: 'Ersparnis je LKW/Tag', val: formatEuro(savingsPerTruckDay, 2, { symbolFirst: true }), bg: 'bg-gray-50' },
-            { label: `Pro Tag (${numTrucks} Fahrzeuge)`, val: formatEuro(savingsPerDay, 2, { symbolFirst: true }), bg: 'bg-green-50 border border-green-100' },
-            { label: `Hochrechnung pro Jahr (${ARBEITSTAGE} Tage)`, val: formatEuro(savingsPerYear, 0, { symbolFirst: true }), bg: 'bg-green-100 border border-green-200 font-bold' },
-          ].map(c => (
-            <div key={c.label} className={`rounded-lg p-3 ${c.bg}`}>
-              <p className="text-xs text-gray-500">{c.label}</p>
-              <p className="text-xl font-bold text-green-700">{c.val}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function DispatchTable({ recs }) {
-  if (!recs?.length) return null
-  const cheapestId = recs[0]?.route || recs[0]?.cluster_id
-  return (
-    <div className="bg-white border border-gray-200 p-5 shadow-sm">
-      <h3 className="text-sm font-semibold text-gray-700 mb-4">Dispatch-Empfehlung (Diesel, nächste 72h)</h3>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-xs text-gray-400 border-b border-gray-100">
-            <th className="text-left pb-2 font-medium">Station</th>
-            <th className="text-right pb-2 font-medium">Akt. Preis</th>
-            <th className="text-right pb-2 font-medium">Bester Preis</th>
-            <th className="text-right pb-2 font-medium">Optimale Zeit</th>
-            <th className="text-right pb-2 font-medium">Ersparnis/L</th>
-          </tr>
-        </thead>
-        <tbody>
-          {recs.map(r => {
-            const id = r.route || r.cluster_id
-            const isCheapest = id === cheapestId
-            return (
-              <tr key={id} className={`border-b border-gray-50 last:border-0 ${isCheapest ? 'bg-green-50' : ''}`}>
-                <td className="py-2.5">
-                  <span className={`font-semibold ${isCheapest ? 'text-green-800' : 'text-gray-800'}`}>
-                    {r.station_name || r.cluster}
-                  </span>
-                  {isCheapest && (
-                    <span className="ml-2 text-xs bg-green-200 text-green-800 rounded-full px-2 py-0.5 font-medium">
-                      Günstigste
-                    </span>
-                  )}
-                  {r.distance_km && (
-                    <span className="ml-2 text-xs text-gray-400">{r.distance_km} km</span>
-                  )}
-                </td>
-                <td className="py-2.5 text-right font-mono text-gray-700">{formatPrice(r.current_price)}</td>
-                <td className={`py-2.5 text-right font-mono font-semibold ${isCheapest ? 'text-green-700' : 'text-gray-800'}`}>
-                  {formatPrice(r.predicted_best_price)}
-                </td>
-                <td className="py-2.5 text-right text-gray-500 text-xs">{r.optimal_time_label}</td>
-                <td className="py-2.5 text-right text-green-600 font-mono text-xs">
-                  {r.savings_vs_now > 0 ? `−${formatPrice(r.savings_vs_now, 4)}` : '–'}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
   )
 }
 
