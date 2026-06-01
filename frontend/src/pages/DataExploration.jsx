@@ -1,9 +1,29 @@
 import { useState, useEffect } from 'react'
 import { api, FUEL_LABELS } from '../services/api'
-import PriceLineChart from '../components/charts/PriceLineChart'
-import TimeHeatmap from '../components/charts/TimeHeatmap'
+import LongTermPriceChart from '../components/charts/LongTermPriceChart'
+import PriceDistributionCloud from '../components/charts/PriceDistributionCloud'
+import PriceHeatmaps from '../components/charts/PriceHeatmaps'
+import GeoPriceMap3D from '../components/map/GeoPriceMap3D'
 import Eli5 from '../components/Eli5'
 import PixelPattern from '../components/ui/PixelPattern'
+import RecordedFigure from '../components/walkthrough/RecordedFigure'
+import { formatPrice } from '../utils/format'
+
+const FUEL_TYPES = ['diesel', 'e5', 'e10']
+
+const MAP_SCENARIOS = [
+  { value: 'spedition', label: 'Spedition (5 Routen)',  desc: '5 konkrete Stationen · MLP-Prognose 72h' },
+  { value: 'b29',       label: 'B29 (4 Cluster)',       desc: 'Korridor Aalen→Stuttgart · Cluster-Geographie' },
+  { value: 'all',       label: 'Alle Stationen',        desc: '~95 Regionen · Animation über alle Jahre' },
+]
+
+const STATIONSAUSWAHL = [
+  { route: 'N',  marke: 'AVIA', ort: 'Ipsheim',    km: '81 km',  ev: '131.857' },
+  { route: 'NE', marke: 'AVIA', ort: 'Nürnberg',   km: '98 km',  ev: '111.210' },
+  { route: 'E',  marke: 'ESSO', ort: 'Olching',    km: '114 km', ev: '102.641' },
+  { route: 'NW', marke: 'AVIA', ort: 'Mühlhausen', km: '109 km', ev: '128.574' },
+  { route: 'SW', marke: 'RAN',  ort: 'Biberach',   km: '86 km',  ev: '111.145' },
+]
 
 function StatCard({ label, value, sub, accent = false }) {
   return (
@@ -26,66 +46,11 @@ function QualityBadge({ ok, label }) {
   )
 }
 
-function MockBadge() {
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">
-      ⚠ Mock-Daten
-    </span>
-  )
-}
-
-function RealBadge({ label = 'Echte Daten (B29-Parquet)' }) {
+function RealBadge({ label = 'Echte Daten (Parquet)' }) {
   return (
     <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-green-100 text-green-700 border border-green-200">
       ✓ {label}
     </span>
-  )
-}
-
-function PriceHistogram({ data, nOutliersHigh = 0 }) {
-  if (!data?.length) return null
-
-  // Remove trailing empty bins (keep up to last non-zero count)
-  let lastNonZero = data.length - 1
-  while (lastNonZero > 0 && data[lastNonZero].count === 0) lastNonZero--
-  const visible = data.slice(0, lastNonZero + 1)
-  const maxCount = Math.max(...visible.map(b => b.count))
-
-  return (
-    <div>
-      <div className="flex items-end gap-0.5 h-32">
-        {visible.map((bin, i) => {
-          const pct = maxCount > 0 ? (bin.count / maxCount) * 100 : 0
-          const price = ((bin.bin_left + bin.bin_right) / 2).toFixed(2)
-          if (bin.count === 0) {
-            // Show empty bin as transparent placeholder to preserve x-axis scale
-            return <div key={i} className="flex-1" />
-          }
-          return (
-            <div
-              key={i}
-              className="flex-1 flex items-end"
-              title={`${price} €/L: ${bin.count.toLocaleString('de-DE')} Stunden`}
-            >
-              <div
-                className="w-full bg-brand-yellow hover:bg-brand-orange rounded-t transition-colors cursor-default"
-                style={{ height: `${Math.max(1, pct)}%` }}
-              />
-            </div>
-          )
-        })}
-      </div>
-      <div className="flex justify-between text-xs text-gray-400 mt-1">
-        <span>{visible[0]?.bin_left.toFixed(2)} €/L</span>
-        <span>{visible[Math.floor(visible.length / 2)]?.bin_left.toFixed(2)} €/L</span>
-        <span>{visible[visible.length - 1]?.bin_right.toFixed(2)} €/L</span>
-      </div>
-      {nOutliersHigh > 0 && (
-        <p className="text-[10px] text-amber-600 mt-2">
-          + {nOutliersHigh.toLocaleString('de-DE')} Messwerte {'>'} 3,50 €/L ausgeblendet
-        </p>
-      )}
-    </div>
   )
 }
 
@@ -140,28 +105,100 @@ function WeekdayBar({ data }) {
   )
 }
 
-export default function DataExploration() {
-  const [eda,          setEda]          = useState(null)
-  const [heatmap,      setHeatmap]      = useState(null)
-  const [history,      setHistory]      = useState([])
-  const [historyMock,  setHistoryMock]  = useState(false)
-  const [loading,      setLoading]      = useState(true)
-  const [edaError,     setEdaError]     = useState(null)
+// ── Interactive map explorer (merged from former Geo-Exploration) ─────────────
+
+function MapExplorer() {
+  const [fuelType, setFuelType] = useState('diesel')
+  const [date,     setDate]     = useState('')
+  const [scenario, setScenario] = useState('spedition')
+  const [data,     setData]     = useState(null)
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState(null)
 
   useEffect(() => {
-    Promise.all([
-      api.eda.summary().catch(e => { setEdaError(String(e)); return null }),
-      api.analytics.heatmap('diesel').catch(() => null),
-      api.prices.history('diesel', 365).catch(() => null),
-    ]).then(([edaData, hm, hist]) => {
-      setEda(edaData)
-      setHeatmap(hm)
-      const histData = hist?.data || []
-      setHistory(histData)
-      // station_count=25 means mock_data.py, =4 means real B29 clusters
-      setHistoryMock(histData.length > 0 && histData[0]?.station_count === 25)
-      setLoading(false)
-    })
+    setLoading(true)
+    setError(null)
+    // "Alle Stationen" = regionale Historie (alle Jahre, animiert). Modelle = Live-Prognose.
+    const req = scenario === 'all'
+      ? api.analytics.regionHistory(fuelType)
+      : api.analytics.geoTimeseries(fuelType, date || null, 'hour', 'all', scenario)
+    req.then(res => { setData(res); setLoading(false) })
+       .catch(err => { setError(String(err)); setLoading(false) })
+  }, [fuelType, date, scenario])
+
+  const isNonDiesel = fuelType !== 'diesel' && (scenario === 'spedition' || scenario === 'b29')
+
+  return (
+    <div className="bg-white border border-gray-200 shadow-sm overflow-hidden">
+      {/* Controls */}
+      <div className="bg-brand-cyan/15 border-b border-brand-cyan/30 px-4 py-2.5 flex flex-wrap items-center gap-3">
+        <div className="flex gap-1">
+          {MAP_SCENARIOS.map(s => (
+            <button
+              key={s.value}
+              onClick={() => setScenario(s.value)}
+              title={s.desc}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                scenario === s.value ? 'bg-brand-orange text-white' : 'bg-brand-charcoal/10 text-brand-charcoal hover:bg-brand-charcoal/20'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {FUEL_TYPES.map(ft => (
+            <button
+              key={ft}
+              onClick={() => setFuelType(ft)}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                fuelType === ft ? 'bg-brand-charcoal text-white' : 'bg-brand-charcoal/10 text-brand-charcoal hover:bg-brand-charcoal/20'
+              }`}
+            >
+              {FUEL_LABELS[ft]}
+            </button>
+          ))}
+        </div>
+        <input
+          type="date"
+          value={date}
+          onChange={e => setDate(e.target.value)}
+          className="text-xs border border-gray-300 rounded-md px-2 py-1 text-gray-700"
+        />
+        {date && (
+          <button onClick={() => setDate('')} className="text-xs text-gray-400 hover:text-gray-700">Heute</button>
+        )}
+        {isNonDiesel && (
+          <span className="text-xs text-brand-charcoal bg-brand-yellow/50 border border-brand-yellow px-2 py-0.5">
+            Modell nur für Diesel — E5/E10 als Näherung
+          </span>
+        )}
+        {data?.meta && (
+          <span className="ml-auto text-xs text-gray-400">
+            {data.meta.n_stations?.toLocaleString('de-DE')} Stationen · {data.meta.date}
+          </span>
+        )}
+        {error && <span className="ml-auto text-xs text-red-500">{error}</span>}
+      </div>
+
+      {/* Map canvas */}
+      <div style={{ height: 460 }} className="relative">
+        <GeoPriceMap3D data={data} fuelType={fuelType} loading={loading} scenario={scenario} />
+      </div>
+    </div>
+  )
+}
+
+export default function DataExploration() {
+  const [eda,      setEda]      = useState(null)
+  const [loading,  setLoading]  = useState(true)
+  const [edaError, setEdaError] = useState(null)
+
+  useEffect(() => {
+    api.eda.summary()
+      .then(setEda)
+      .catch(e => setEdaError(String(e)))
+      .finally(() => setLoading(false))
   }, [])
 
   const cov = eda?.coverage
@@ -170,15 +207,15 @@ export default function DataExploration() {
 
   return (
     <div className="flex flex-col h-full overflow-auto bg-brand-cream">
-      {/* Page header — yellow */}
-      <header className="relative overflow-hidden shrink-0 px-8 py-6 bg-brand-yellow">
-        <p className="text-[10px] font-mono uppercase tracking-widest text-brand-charcoal/50 mb-1">Schritt 01 · CRISP-DM · Data Understanding</p>
+      {/* Page header — cyan */}
+      <header className="relative overflow-hidden shrink-0 px-8 py-6 bg-brand-cyan">
+        <p className="text-[10px] font-mono uppercase tracking-widest text-brand-charcoal/50 mb-1">Schritt 02 · CRISP-DM · Data Understanding</p>
         <h1 className="text-4xl font-bold text-brand-charcoal uppercase leading-none">Datenexploration</h1>
         <p className="text-sm mt-2 text-brand-charcoal/60 max-w-xl">
-          Bevor wir Modelle bauen, müssen wir die Daten kennen und verstehen.
-          15.000+ Tankstellen · Ausreißer · Zeitliche Muster.
+          Bevor wir Modelle bauen, müssen wir die Daten kennen und verstehen — Quelle,
+          Stationsauswahl, Geographie und zeitliche Muster.
         </p>
-        <PixelPattern color1="rgba(28,28,26,0.12)" color2="transparent" steps={4}
+        <PixelPattern color1="rgba(28,28,26,0.10)" color2="transparent" steps={4}
           className="absolute top-0 right-0" />
       </header>
 
@@ -200,6 +237,77 @@ export default function DataExploration() {
           Wo fehlen Preise? Gibt es unlogische Werte wie 0 €/L oder 4 €/L?
           Erst wenn wir das wissen, können wir guten Gewissens modellieren.
         </Eli5>
+
+        {/* Datenquelle Tankerkönig */}
+        <div className="bg-white border border-gray-200 p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-800 mb-2">Datenquelle: Tankerkönig Open Data</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Die Datenbasis stammt aus dem <strong>Tankerkönig Open Data</strong>-Projekt: tägliche
+            CSV-Dateien mit den Preisänderungen aller deutschen Tankstellen seit 2014.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <StatCard label="Rohdaten-Umfang" value="~87 GB" sub="historische CSV-Dateien" accent />
+            <StatCard label="Preiseinträge" value="1,1 Mrd." sub="über 4.365 Tage (2014–2026)" />
+            <StatCard label="Tankstellen" value="> 15.000" sub="deutschlandweit" accent />
+          </div>
+        </div>
+
+        {/* Stationsauswahl */}
+        <div className="bg-white border border-gray-200 p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-800 mb-2">Stationsauswahl — 5 Routen</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Für jede der fünf Himmelsrichtungen (N, NE, E, SW, NW) wird aus dem Ring
+            <strong> 80–120 km um Aalen</strong> die Station mit der höchsten Datenverfügbarkeit
+            ausgewählt. Aus <strong>1.233 Kandidaten</strong> werden fünf Stationen gewählt —
+            automatisiert über Haversine-Distanz und Kompasswinkel.
+          </p>
+          <table className="w-full text-sm mb-4">
+            <thead>
+              <tr className="text-xs text-gray-400 border-b border-gray-100">
+                <th className="text-left pb-2 font-medium">Route</th>
+                <th className="text-left pb-2 font-medium">Marke</th>
+                <th className="text-left pb-2 font-medium">Ort</th>
+                <th className="text-right pb-2 font-medium">Entfernung</th>
+                <th className="text-right pb-2 font-medium">Preis-Ereignisse</th>
+              </tr>
+            </thead>
+            <tbody>
+              {STATIONSAUSWAHL.map(r => (
+                <tr key={r.route} className="border-b border-gray-50 last:border-0">
+                  <td className="py-2 font-bold text-brand-orange">{r.route}</td>
+                  <td className="py-2 text-gray-700">{r.marke}</td>
+                  <td className="py-2 text-gray-700">{r.ort}</td>
+                  <td className="py-2 text-right font-mono text-gray-600">{r.km}</td>
+                  <td className="py-2 text-right font-mono text-gray-600">{r.ev}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Eli5 title="Haversine-Formel — warum nicht einfach Luftlinie auf den Koordinaten?">
+            Die euklidische Distanz auf Längen- und Breitengraden liefert für geographische Abstände
+            systematisch falsche Ergebnisse, weil Längengrade zum Äquator hin konvergieren. Die
+            Haversine-Formel berechnet den <strong>Großkreisabstand</strong> — die kürzeste
+            Verbindung zweier Punkte auf der Kugeloberfläche. So weisen wir jede Station sauber einem
+            Himmelsrichtungssektor zu und wählen je Sektor die Station mit den meisten Ereignissen.
+          </Eli5>
+        </div>
+
+        {/* Interaktive Karte */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-sm font-semibold text-gray-700">Interaktive Karte — Preise als Vektoren</h2>
+            <RealBadge label="Live aus Backend" />
+          </div>
+          <MapExplorer />
+          <p className="text-xs text-gray-400 mt-2">
+            Jeder Pfeil = eine Station · Länge = Preis · Farbe grün (günstig) bis rot (teuer).
+            <strong> Spedition</strong>: 5 Routen ab Aalen mit 72-h-Prognose ·
+            <strong> B29</strong>: 4 Cluster-Geographien des Korridors Aalen→Stuttgart (hier als
+            Daten­ansicht — das B29-Modell selbst ist verworfen, siehe Reflexion) ·
+            <strong> Alle Stationen</strong>: alle Stationen je PLZ-Region gemittelt (~95 Regionen),
+            animiert über alle Jahre 2014→heute — Spritsorte oben umschaltbar, Tempo unten einstellbar.
+          </p>
+        </div>
 
         {/* Datenzensus */}
         {cov && (
@@ -235,6 +343,19 @@ export default function DataExploration() {
           </div>
         )}
 
+        {/* EDA-Befunde Einleitung */}
+        <div className="bg-brand-cyan/10 border border-brand-cyan/30 p-5">
+          <h2 className="text-sm font-semibold text-brand-charcoal mb-2">Drei Befunde aus der EDA — relevant fürs Modell</h2>
+          <ol className="text-sm text-brand-charcoal/75 space-y-1 list-decimal list-inside">
+            <li><strong>Hohe Korrelation zwischen allen Stationen</strong> (r &gt; 0,95): Der Rohölpreis treibt alle Preise gemeinsam — lokale Unterschiede sind gering, aber vorhersagbar.</li>
+            <li><strong>Intraday-Muster</strong>: Preise steigen morgens, fallen abends. Dieses tägliche Muster ist ein wertvolles Signal.</li>
+            <li><strong>Fehlende Stunden</strong>: Tankstellen melden nur bei Änderungen. Stunden ohne Meldung werden per Vorwärtsfüllung (letzter bekannter Preis) aufgefüllt.</li>
+          </ol>
+          <div className="mt-4 max-w-md">
+            <RecordedFigure name="eda_correlation.png" caption="Preis-Korrelation der 5 Stationen (r > 0,95)" />
+          </div>
+        </div>
+
         {/* Datenqualität */}
         {q && (
           <div className="bg-white border border-gray-200 p-5 shadow-sm">
@@ -261,48 +382,44 @@ export default function DataExploration() {
           </div>
         )}
 
-        {/* Preisverteilung + Histogramm */}
+        {/* Preisverteilung über die Zeit — Dot-Matrix-Cloud */}
+        <div className="bg-white border border-gray-200 p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-sm font-semibold text-gray-700">Preisverteilung über die Zeit (Diesel)</h2>
+            <RealBadge label="Tankerkönig 2014–heute" />
+          </div>
+          <p className="text-xs text-gray-400 mb-4">
+            Häufigkeit der beobachteten Stundenpreise als Punktwolke: <strong>wann</strong> lag der Preis
+            auf <strong>welchem Niveau</strong> und mit <strong>wie vielen Einträgen</strong>.
+          </p>
+          <PriceDistributionCloud />
+        </div>
+
+        {/* Preis-Kennzahlen */}
         {ps && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white border border-gray-200 p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-sm font-semibold text-gray-700">Preisverteilung (Diesel, B29)</h2>
-                <RealBadge />
-              </div>
-              <p className="text-xs text-gray-400 mb-4">
-                Häufigkeit der beobachteten Stundenpreise (0,80–3,50 €/L).
-                Jeder Balken = ein Preisbereich · Höhe = Anzahl Stunden.
-                {ps.n_outliers_high > 0 && ` Extreme Ausreißer separat ausgewiesen.`}
-              </p>
-              <PriceHistogram
-                data={ps.histogram}
-                nOutliersHigh={ps.n_outliers_high ?? 0}
-              />
+          <div className="bg-white border border-gray-200 p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-sm font-semibold text-gray-700">Preis-Kennzahlen</h2>
+              <RealBadge />
             </div>
-            <div className="bg-white border border-gray-200 p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-sm font-semibold text-gray-700">Preis-Kennzahlen</h2>
-                <RealBadge />
-              </div>
-              <p className="text-xs text-gray-400 mb-4">Statistische Zusammenfassung aller Dieselpreise im B29-Datensatz.</p>
-              <div className="space-y-2">
-                {[
-                  { label: 'Mittelwert',   val: ps.mean, color: 'text-brand-orange' },
-                  { label: 'Median (P50)', val: ps.p50,  color: 'text-gray-700' },
-                  { label: 'Minimum',      val: ps.min,  color: 'text-green-600' },
-                  { label: 'Maximum',      val: ps.max,  color: 'text-red-600' },
-                  { label: 'Std.-Abw.',    val: ps.std,  color: 'text-gray-500' },
-                  { label: 'P5 / P95', val: `${ps.p05?.toFixed(3)} / ${ps.p95?.toFixed(3)}`,
-                    color: 'text-gray-500', raw: true },
-                ].map(row => (
-                  <div key={row.label} className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{row.label}</span>
-                    <span className={`text-sm font-mono font-semibold ${row.color}`}>
-                      {row.raw ? row.val : `${row.val?.toFixed(4)} €/L`}
-                    </span>
-                  </div>
-                ))}
-              </div>
+            <p className="text-xs text-gray-400 mb-4">Statistische Zusammenfassung aller Dieselpreise im Datensatz.</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-2">
+              {[
+                { label: 'Mittelwert',   val: ps.mean, color: 'text-brand-orange' },
+                { label: 'Median (P50)', val: ps.p50,  color: 'text-gray-700' },
+                { label: 'Minimum',      val: ps.min,  color: 'text-green-600' },
+                { label: 'Maximum',      val: ps.max,  color: 'text-red-600' },
+                { label: 'Std.-Abw.',    val: ps.std,  color: 'text-gray-500' },
+                { label: 'P5 / P95', val: `${formatPrice(ps.p05)} / ${formatPrice(ps.p95)}`,
+                  color: 'text-gray-500', raw: true },
+              ].map(row => (
+                <div key={row.label} className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">{row.label}</span>
+                  <span className={`text-sm font-mono font-semibold ${row.color}`}>
+                    {row.raw ? row.val : `${formatPrice(row.val)} €/L`}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -319,6 +436,9 @@ export default function DataExploration() {
               Grün = günstig · Gelb = mittel · Rot = teuer.
             </p>
             <Intraday data={eda.intraday_profile} />
+            <div className="mt-4 max-w-xl">
+              <RecordedFigure name="eda_intraday.png" caption="Intraday-Preismuster — morgens teuer, nachts günstig" />
+            </div>
             <Eli5 title="Warum ist Tanken morgens oft günstiger?" className="mt-4">
               Kraftstoffhändler passen Preise mehrfach täglich an. Erfahrungsgemäß
               sinken Preise nach Mitternacht ab — Tankstellen wollen Lager loswerden.
@@ -344,47 +464,36 @@ export default function DataExploration() {
           </div>
         )}
 
-        {/* Langzeit-Trend */}
-        {history.length > 0 && (
-          <div className="bg-white border border-gray-200 p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-sm font-semibold text-gray-700">Langzeit-Preisverlauf (Diesel, B29)</h2>
-              {historyMock ? <MockBadge /> : <RealBadge label="Echte B29-Tagesmittel" />}
-            </div>
-            <p className="text-xs text-gray-400 mb-4">
-              {historyMock
-                ? 'Zeigt aktuell Mock-Daten (Fallback). Backend-Verbindung oder Parquet-Pfad prüfen.'
-                : 'Tägliche Durchschnittspreise (Mittel der 4 B29-Cluster: Aalen, Schwäbisch Gmünd, Schorndorf, Stuttgart).'}
-            </p>
-            <PriceLineChart datasets={[{ fuelType: 'diesel', data: history }]} />
+        {/* Langzeit-Trend — interaktiv */}
+        <div className="bg-white border border-gray-200 p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-sm font-semibold text-gray-700">Langzeit-Preisverlauf (Diesel · 5 Stationen)</h2>
+            <RealBadge label="Tankerkönig 2014–heute" />
           </div>
-        )}
+          <p className="text-xs text-gray-400 mb-4">
+            Interaktiv: Zeitfenster wählen, zoomen &amp; verschieben, Stationen ein-/ausblenden, glätten —
+            mit Live-Kennzahlen für den sichtbaren Ausschnitt.
+          </p>
+          <LongTermPriceChart />
+        </div>
 
-        {/* Wochentags-Stunden-Heatmap */}
-        {heatmap && (
-          <div className="bg-white border border-gray-200 p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-sm font-semibold text-gray-700">
-                Wochentag × Uhrzeit — Preisheatmap (Diesel)
-              </h2>
-              <RealBadge />
-            </div>
-            <p className="text-xs text-gray-400 mb-4">
-              Jede Zelle = Ø-Preis an diesem Wochentag zu dieser Uhrzeit (letzte 90 Tage).
-              Grün = günstig · Rot = teuer · Hover für Details.
-            </p>
-            <TimeHeatmap data={heatmap.data} overallAvg={heatmap.overall_avg} />
-            <Eli5 title="Die Heatmap als Fahrplan für unser Modell" className="mt-4">
-              Diese 7×24-Tabelle ist im Grunde das Gedächtnis des einfachsten möglichen
-              Modells: „Welche Stunde in welchem Wochentag war historisch am günstigsten?"
-              Unser MLP lernt dasselbe — aber mit 100+ Features und über 72 Stunden Horizont,
-              statt nur einem einzigen Durchschnittswert je Zelle. Man sieht: der Ansatz
-              stimmt. Das Modell verfeinert nur, was diese Heatmap bereits zeigt.
-            </Eli5>
+        {/* Wochentag × Uhrzeit — interaktive Heatmaps */}
+        <div className="bg-white border border-gray-200 p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-sm font-semibold text-gray-700">Wochentag × Uhrzeit — Preisheatmap (Diesel)</h2>
+            <RealBadge label="Tankerkönig 2014–heute" />
           </div>
-        )}
+          <PriceHeatmaps />
+          <Eli5 title="Die Heatmap als Fahrplan für unser Modell" className="mt-4">
+            Die obere 7×24-Tabelle ist im Grunde das Gedächtnis des einfachsten möglichen
+            Modells: „Welche Stunde in welchem Wochentag war historisch am günstigsten?"
+            Unser MLP lernt dasselbe — aber mit 100+ Features und über 72 Stunden Horizont,
+            statt nur einem einzigen Durchschnittswert je Zelle. Die untere Live-Ansicht zeigt,
+            wie sich dieses Muster in den letzten Wochen real wiederfindet.
+          </Eli5>
+        </div>
 
-        {loading && !eda && !heatmap && (
+        {loading && !eda && (
           <div className="bg-white border border-gray-200 p-10 flex items-center justify-center text-brand-charcoal/40 text-sm">
             Lade Explorationsdaten …
           </div>

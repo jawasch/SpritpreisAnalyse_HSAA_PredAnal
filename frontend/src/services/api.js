@@ -24,6 +24,10 @@ export const api = {
     current: (ids) => client.get('/api/v1/prices/current', { params: { ids: ids.join(',') } }),
     history: (fuelType = 'e5', days = 30) =>
       client.get('/api/v1/prices/history', { params: { fuel_type: fuelType, days } }),
+    longterm: (resolution = 'week') =>
+      client.get('/api/v1/prices/longterm', { params: { resolution } }),
+    distribution: (resolution = 'month', bin = 0.02) =>
+      client.get('/api/v1/prices/distribution', { params: { resolution, bin } }),
   },
 
   analytics: {
@@ -31,6 +35,10 @@ export const api = {
       client.get('/api/v1/analytics/heatmap', { params: { fuel_type: fuelType } }),
     bestTime: (fuelType = 'e5') =>
       client.get('/api/v1/analytics/best-time', { params: { fuel_type: fuelType } }),
+    priceHeatmaps: (weeks = 4) =>
+      client.get('/api/v1/analytics/price-heatmaps', { params: { weeks } }),
+    regionHistory: (fuel = 'diesel') =>
+      client.get('/api/v1/analytics/region-history', { params: { fuel } }),
     geoTimeseries: (fuelType = 'diesel', date = null, interval = 'hour', region = 'bw', scenario = 'all') =>
       client.get('/api/v1/analytics/geo/timeseries', {
         params: { fuel_type: fuelType, ...(date && { date }), interval, region, scenario },
@@ -51,6 +59,13 @@ export const api = {
   notebooks: {
     list: () => client.get('/api/v1/notebooks'),
     html: (name) => client.get(`/api/v1/notebooks/${encodeURIComponent(name)}/html`),
+  },
+
+  walkthrough: {
+    steps:     (phase)  => client.get(`/api/v1/walkthrough/${phase}`),
+    run:       (stepId) => client.post(`/api/v1/walkthrough/run/${stepId}`),
+    streamUrl: ()       => `${import.meta.env.VITE_API_URL || ''}/api/v1/walkthrough/run-state/stream`,
+    assetUrl:  (url)    => `${import.meta.env.VITE_API_URL || ''}${url}`,
   },
 
   eda: {

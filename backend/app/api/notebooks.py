@@ -14,29 +14,30 @@ router = APIRouter()
 
 NOTEBOOKS_DIR = Path(os.getenv("NOTEBOOKS_DIR", "/app/notebooks"))
 
-# Scratch/work-in-progress notebooks excluded from the public list
-_EXCLUDED = {"Scribble.ipynb"}
+# Scratch / superseded notebooks excluded from the public list.
+# Kept robust in case the files still linger on disk.
+_EXCLUDED = {
+    "Scribble.ipynb",
+    "all_stations_geo_mlp.ipynb",
+    "spritpreis_mlp.ipynb",
+    "spritpreis_b29_mlp_bereinigt.ipynb",
+    "FIN_all_germany_web_mlp.ipynb",
+}
 
-# Human-readable display names
+# Human-readable display names — only the four curated project notebooks
 _DISPLAY_NAMES = {
-    "data-exploration.ipynb":             "01 · Datenexploration",
-    "b29_fleet_mlp.ipynb":                "02 · B29 Fleet MLP (4 Cluster)",
-    "spedition_mlp.ipynb":                "03 · Spedition MLP (5 Stationen) ★",
-    "all_stations_geo_mlp.ipynb":         "04 · Geo-MLP (alle BW-Stationen)",
-    "all_germany_web_mlp.ipynb":          "05 · All-Germany Web MLP",
-    "spritpreis_mlp.ipynb":               "Nationales MLP (Baseline)",
-    "spritpreis_b29_mlp_bereinigt.ipynb": "B29 MLP (bereinigt)",
+    "data-exploration.ipynb":    "01 · Datenexploration",
+    "spedition_mlp.ipynb":       "02 · Spedition MLP (5 Stationen) ★",
+    "b29_fleet_mlp.ipynb":       "03 · B29 Fleet MLP (verworfener Ansatz)",
+    "all_germany_web_mlp.ipynb": "04 · All-Germany MLP (Ausblick)",
 }
 
 # Desired sort order for curated notebooks
 _SORT_ORDER = [
     "data-exploration.ipynb",
-    "b29_fleet_mlp.ipynb",
     "spedition_mlp.ipynb",
-    "all_stations_geo_mlp.ipynb",
+    "b29_fleet_mlp.ipynb",
     "all_germany_web_mlp.ipynb",
-    "spritpreis_mlp.ipynb",
-    "spritpreis_b29_mlp_bereinigt.ipynb",
 ]
 
 

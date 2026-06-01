@@ -1,0 +1,26 @@
+════════════════════════════════════════════════════════════════
+  §4 · Modeling — Architektur-Vergleich (7 Netze × 2 Experimente)
+════════════════════════════════════════════════════════════════
+
+  Experiment 1 — geduldige Parameter (n_iter_no_change=100)
+    (32,)          Val MAE 0.02975 €/L
+    (128,)         Val MAE 0.03227 €/L
+    (64,)          Val MAE 0.03445 €/L
+    (16,)          Val MAE 0.03457 €/L
+    (64,128)       Val MAE 0.04440 €/L
+    (128,256)      Val MAE 0.05227 €/L
+    (64,128,256)   Val MAE 0.05263 €/L
+    → beste Architektur: (32,)
+  ✓ Figur gespeichert: arch_patient.png
+
+  Experiment 2 — Standardparameter (n_iter_no_change=50)
+    (32,)          Val MAE 0.02829 €/L
+    (128,)         Val MAE 0.03044 €/L
+    (64,)          Val MAE 0.03304 €/L
+    (128,256)      Val MAE 0.04137 €/L
+    (64,128)       Val MAE 0.04423 €/L
+    (64,128,256)   Val MAE 0.04999 €/L
+    → beste Architektur: (32,)
+  ✓ Figur gespeichert: arch_std.png
+
+  (32,) gewinnt in beiden Experimenten — tiefere Netze overfitten trotz mehr Parametern.

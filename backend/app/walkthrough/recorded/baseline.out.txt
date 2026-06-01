@@ -1,0 +1,10 @@
+════════════════════════════════════════════════════════════════
+  §4 · Modeling — Baseline (DummyRegressor)
+════════════════════════════════════════════════════════════════
+  Train : 2014-06-15 09:00:00  →  2021-12-31 23:00:00  (66,159 rows)
+  Val   : 2022-01-01 00:00:00  →  2023-12-31 23:00:00  (17,520 rows)
+  Test  : 2024-01-01 00:00:00  →  2026-05-17 20:00:00  (20,829 rows)
+  Der DummyRegressor gibt immer den Trainings-Durchschnitt aus —
+  er ignoriert die aktuelle Lage komplett.
+
+  Baseline MAE : 0.455 €/L   ← dieser Wert muss geschlagen werden

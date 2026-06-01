@@ -1,0 +1,14 @@
+════════════════════════════════════════════════════════════════
+  §1 · Business Understanding — Szenario & Einsparpotenzial
+════════════════════════════════════════════════════════════════
+  Flotte             : 25 LKWs
+  Verbrauch je LKW   : 150 L/Tag  (500 km × 30 L/100 km)
+  Flottenvolumen     : 3,750 L/Tag
+  Forecast-Horizont  : 72 h
+
+  Einsparpotenzial bei optimalem Stationsrouting:
+    1 ct/L  →    37.50 €/Tag   ≈     9,375 €/Jahr
+    2 ct/L  →    75.00 €/Tag   ≈    18,750 €/Jahr
+    5 ct/L  →   187.50 €/Tag   ≈    46,875 €/Jahr
+
+  (Hochrechnung über 250 Arbeitstage)

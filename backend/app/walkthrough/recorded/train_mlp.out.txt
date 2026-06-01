@@ -1,0 +1,19 @@
+════════════════════════════════════════════════════════════════
+  §4 · Modeling — finales MLP (32,) trainieren + Cross-Validation
+════════════════════════════════════════════════════════════════
+  Train : 2014-06-15 09:00:00  →  2021-12-31 23:00:00  (66,159 rows)
+  Val   : 2022-01-01 00:00:00  →  2023-12-31 23:00:00  (17,520 rows)
+  Test  : 2024-01-01 00:00:00  →  2026-05-17 20:00:00  (20,829 rows)
+  TimeSeriesSplit (5 Folds) — Stabilitätsnachweis der Architektur (32,):
+    Fold 1:  MAE=2.627 ct/L   R²=0.763   (iter 239)
+    Fold 2:  MAE=2.126 ct/L   R²=0.717   (iter 267)
+    Fold 3:  MAE=2.451 ct/L   R²=0.859   (iter 366)
+    Fold 4:  MAE=2.242 ct/L   R²=0.920   (iter 371)
+    Fold 5:  MAE=2.094 ct/L   R²=0.971   (iter 283)
+    Ø        :  MAE=2.308 ± 0.203 ct/L   R²=0.846 ± 0.094
+  ✓ Figur gespeichert: cv_folds.png
+
+  Trainiere finales Modell auf dem gesamten Trainingsdatensatz …
+    konvergiert nach 662 Iterationen (392s)
+    Validation:  MAE=0.0277 €/L   R²=0.9565
+  ✓ Modell gespeichert: spedition_mlp.joblib

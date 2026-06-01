@@ -1,0 +1,26 @@
+════════════════════════════════════════════════════════════════
+  §2 · Data Understanding — Regionale Preis-Historie (alle Jahre) bauen
+════════════════════════════════════════════════════════════════
+  Aggregiert alle Stationen je PLZ-2-Region, ein Tag pro Woche, 2014→heute.
+  Speist die animierte „Alle Stationen"-Karte (alle Spritsorten).
+
+Stationen: 15,437 · Regionen (PLZ-2): 96
+Repräsentative Tage: 625 (≈ 1 pro Woche, 2014-06-08 → 2026-05-18)
+  … 50/625 Tage gelesen
+  … 100/625 Tage gelesen
+  … 150/625 Tage gelesen
+  … 200/625 Tage gelesen
+  … 250/625 Tage gelesen
+  … 300/625 Tage gelesen
+  … 350/625 Tage gelesen
+  … 400/625 Tage gelesen
+  … 450/625 Tage gelesen
+  … 500/625 Tage gelesen
+  … 550/625 Tage gelesen
+  … 600/625 Tage gelesen
+
+✓ region_history.parquet: 59,565 Zeilen · 96 Regionen · 2014-06-08 → 2026-05-18
+    diesel: 59,565 Werte
+    e5: 59,565 Werte
+    e10: 59,565 Werte
+✓ region_meta.parquet: 96 Regionen

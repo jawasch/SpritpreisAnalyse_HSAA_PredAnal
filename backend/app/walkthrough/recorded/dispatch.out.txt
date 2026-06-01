@@ -1,0 +1,16 @@
+════════════════════════════════════════════════════════════════
+  §6 · Deployment — Dispatch-Empfehlung & Modell-Persistenz
+════════════════════════════════════════════════════════════════
+  Train : 2014-06-15 09:00:00  →  2021-12-31 23:00:00  (66,159 rows)
+  Val   : 2022-01-01 00:00:00  →  2023-12-31 23:00:00  (17,520 rows)
+  Test  : 2024-01-01 00:00:00  →  2026-05-17 20:00:00  (20,829 rows)
+  Horizont +8h — Empfehlung: Route_NW  (≈ 1.904 €/L)
+  Ranking (günstigste → teuerste):
+    Route_NW  1.904 €/L
+    Route_N   1.970 €/L
+    Route_SW  1.971 €/L
+    Route_NE  1.980 €/L
+    Route_E   2.023 €/L
+  Spread günstigste↔teuerste × 150 L = 17.95 € je Tankfüllung
+
+  ✓ Modell liegt als spedition_mlp.joblib vor — in <1 s ladbar (kein Neutraining).

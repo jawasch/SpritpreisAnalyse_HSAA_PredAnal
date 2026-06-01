@@ -24,6 +24,10 @@ fastparquet==2024.11.0
 statsmodels==0.14.4
 holidays==0.64
 
+# Figure generation for the guided-walkthrough step runner (scripts/walkthrough_run.py)
+matplotlib==3.9.2
+tqdm==4.66.5
+
 # ========================================
 # DATABASE
 # ========================================

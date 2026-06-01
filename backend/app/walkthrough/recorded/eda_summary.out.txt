@@ -1,0 +1,10 @@
+════════════════════════════════════════════════════════════════
+  §2 · Data Understanding — EDA-Summary + Befunde
+════════════════════════════════════════════════════════════════
+  Lese Parquets, berechne Zensus / Histogramm / Qualität …
+  ✓ eda_summary.json geschrieben — Abdeckung: ['b29', 'spedition']
+    Stationen gesamt : 15,442
+    Ø Dieselpreis    : 1.423 €/L
+  ✓ Figur gespeichert: eda_correlation.png
+    Korrelation r ∈ [0.983, 0.992]
+  ✓ Figur gespeichert: eda_intraday.png
