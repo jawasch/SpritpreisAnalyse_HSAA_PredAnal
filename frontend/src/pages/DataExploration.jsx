@@ -2,8 +2,24 @@ import { useState, useEffect } from 'react'
 import { api, FUEL_LABELS } from '../services/api'
 import PriceLineChart from '../components/charts/PriceLineChart'
 import TimeHeatmap from '../components/charts/TimeHeatmap'
+import GeoPriceMap3D from '../components/map/GeoPriceMap3D'
 import Eli5 from '../components/Eli5'
 import PixelPattern from '../components/ui/PixelPattern'
+
+const FUEL_TYPES = ['diesel', 'e5', 'e10']
+
+const MAP_SCENARIOS = [
+  { value: 'spedition', label: 'Spedition (5 Routen)', desc: '5 konkrete Stationen · MLP-Prognose 72h' },
+  { value: 'all',       label: 'Alle Stationen',       desc: '15k Stationen · Preisschätzung aus Parquet' },
+]
+
+const STATIONSAUSWAHL = [
+  { route: 'N',  marke: 'AVIA', ort: 'Ipsheim',    km: '81 km',  ev: '131.857' },
+  { route: 'NE', marke: 'AVIA', ort: 'Nürnberg',   km: '98 km',  ev: '111.210' },
+  { route: 'E',  marke: 'ESSO', ort: 'Olching',    km: '114 km', ev: '102.641' },
+  { route: 'NW', marke: 'AVIA', ort: 'Mühlhausen', km: '109 km', ev: '128.574' },
+  { route: 'SW', marke: 'RAN',  ort: 'Biberach',   km: '86 km',  ev: '111.145' },
+]
 
 function StatCard({ label, value, sub, accent = false }) {
   return (
@@ -34,7 +50,7 @@ function MockBadge() {
   )
 }
 
-function RealBadge({ label = 'Echte Daten (B29-Parquet)' }) {
+function RealBadge({ label = 'Echte Daten (Parquet)' }) {
   return (
     <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-green-100 text-green-700 border border-green-200">
       ✓ {label}
@@ -45,7 +61,6 @@ function RealBadge({ label = 'Echte Daten (B29-Parquet)' }) {
 function PriceHistogram({ data, nOutliersHigh = 0 }) {
   if (!data?.length) return null
 
-  // Remove trailing empty bins (keep up to last non-zero count)
   let lastNonZero = data.length - 1
   while (lastNonZero > 0 && data[lastNonZero].count === 0) lastNonZero--
   const visible = data.slice(0, lastNonZero + 1)
@@ -58,7 +73,6 @@ function PriceHistogram({ data, nOutliersHigh = 0 }) {
           const pct = maxCount > 0 ? (bin.count / maxCount) * 100 : 0
           const price = ((bin.bin_left + bin.bin_right) / 2).toFixed(2)
           if (bin.count === 0) {
-            // Show empty bin as transparent placeholder to preserve x-axis scale
             return <div key={i} className="flex-1" />
           }
           return (
@@ -140,13 +154,95 @@ function WeekdayBar({ data }) {
   )
 }
 
+// ── Interactive map explorer (merged from former Geo-Exploration) ─────────────
+
+function MapExplorer() {
+  const [fuelType, setFuelType] = useState('diesel')
+  const [date,     setDate]     = useState('')
+  const [scenario, setScenario] = useState('spedition')
+  const [data,     setData]     = useState(null)
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    api.analytics
+      .geoTimeseries(fuelType, date || null, 'hour', 'all', scenario)
+      .then(res => { setData(res); setLoading(false) })
+      .catch(err => { setError(String(err)); setLoading(false) })
+  }, [fuelType, date, scenario])
+
+  const isNonDiesel = fuelType !== 'diesel' && scenario === 'spedition'
+
+  return (
+    <div className="bg-white border border-gray-200 shadow-sm overflow-hidden">
+      {/* Controls */}
+      <div className="bg-brand-cyan/15 border-b border-brand-cyan/30 px-4 py-2.5 flex flex-wrap items-center gap-3">
+        <div className="flex gap-1">
+          {MAP_SCENARIOS.map(s => (
+            <button
+              key={s.value}
+              onClick={() => setScenario(s.value)}
+              title={s.desc}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                scenario === s.value ? 'bg-brand-orange text-white' : 'bg-brand-charcoal/10 text-brand-charcoal hover:bg-brand-charcoal/20'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {FUEL_TYPES.map(ft => (
+            <button
+              key={ft}
+              onClick={() => setFuelType(ft)}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                fuelType === ft ? 'bg-brand-charcoal text-white' : 'bg-brand-charcoal/10 text-brand-charcoal hover:bg-brand-charcoal/20'
+              }`}
+            >
+              {FUEL_LABELS[ft]}
+            </button>
+          ))}
+        </div>
+        <input
+          type="date"
+          value={date}
+          onChange={e => setDate(e.target.value)}
+          className="text-xs border border-gray-300 rounded-md px-2 py-1 text-gray-700"
+        />
+        {date && (
+          <button onClick={() => setDate('')} className="text-xs text-gray-400 hover:text-gray-700">Heute</button>
+        )}
+        {isNonDiesel && (
+          <span className="text-xs text-brand-charcoal bg-brand-yellow/50 border border-brand-yellow px-2 py-0.5">
+            Modell nur für Diesel — E5/E10 als Näherung
+          </span>
+        )}
+        {data?.meta && (
+          <span className="ml-auto text-xs text-gray-400">
+            {data.meta.n_stations?.toLocaleString('de-DE')} Stationen · {data.meta.date}
+          </span>
+        )}
+        {error && <span className="ml-auto text-xs text-red-500">{error}</span>}
+      </div>
+
+      {/* Map canvas */}
+      <div style={{ height: 460 }} className="relative">
+        <GeoPriceMap3D data={data} fuelType={fuelType} loading={loading} scenario={scenario} />
+      </div>
+    </div>
+  )
+}
+
 export default function DataExploration() {
-  const [eda,          setEda]          = useState(null)
-  const [heatmap,      setHeatmap]      = useState(null)
-  const [history,      setHistory]      = useState([])
-  const [historyMock,  setHistoryMock]  = useState(false)
-  const [loading,      setLoading]      = useState(true)
-  const [edaError,     setEdaError]     = useState(null)
+  const [eda,         setEda]         = useState(null)
+  const [heatmap,     setHeatmap]     = useState(null)
+  const [history,     setHistory]     = useState([])
+  const [historyMock, setHistoryMock] = useState(false)
+  const [loading,     setLoading]     = useState(true)
+  const [edaError,    setEdaError]    = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -158,7 +254,6 @@ export default function DataExploration() {
       setHeatmap(hm)
       const histData = hist?.data || []
       setHistory(histData)
-      // station_count=25 means mock_data.py, =4 means real B29 clusters
       setHistoryMock(histData.length > 0 && histData[0]?.station_count === 25)
       setLoading(false)
     })
@@ -170,15 +265,15 @@ export default function DataExploration() {
 
   return (
     <div className="flex flex-col h-full overflow-auto bg-brand-cream">
-      {/* Page header — yellow */}
-      <header className="relative overflow-hidden shrink-0 px-8 py-6 bg-brand-yellow">
-        <p className="text-[10px] font-mono uppercase tracking-widest text-brand-charcoal/50 mb-1">Schritt 01 · CRISP-DM · Data Understanding</p>
+      {/* Page header — cyan */}
+      <header className="relative overflow-hidden shrink-0 px-8 py-6 bg-brand-cyan">
+        <p className="text-[10px] font-mono uppercase tracking-widest text-brand-charcoal/50 mb-1">Schritt 02 · CRISP-DM · Data Understanding</p>
         <h1 className="text-4xl font-bold text-brand-charcoal uppercase leading-none">Datenexploration</h1>
         <p className="text-sm mt-2 text-brand-charcoal/60 max-w-xl">
-          Bevor wir Modelle bauen, müssen wir die Daten kennen und verstehen.
-          15.000+ Tankstellen · Ausreißer · Zeitliche Muster.
+          Bevor wir Modelle bauen, müssen wir die Daten kennen und verstehen — Quelle,
+          Stationsauswahl, Geographie und zeitliche Muster.
         </p>
-        <PixelPattern color1="rgba(28,28,26,0.12)" color2="transparent" steps={4}
+        <PixelPattern color1="rgba(28,28,26,0.10)" color2="transparent" steps={4}
           className="absolute top-0 right-0" />
       </header>
 
@@ -200,6 +295,74 @@ export default function DataExploration() {
           Wo fehlen Preise? Gibt es unlogische Werte wie 0 €/L oder 4 €/L?
           Erst wenn wir das wissen, können wir guten Gewissens modellieren.
         </Eli5>
+
+        {/* Datenquelle Tankerkönig */}
+        <div className="bg-white border border-gray-200 p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-800 mb-2">Datenquelle: Tankerkönig Open Data</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Die Datenbasis stammt aus dem <strong>Tankerkönig Open Data</strong>-Projekt: tägliche
+            CSV-Dateien mit den Preisänderungen aller deutschen Tankstellen seit 2014.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <StatCard label="Rohdaten-Umfang" value="~87 GB" sub="historische CSV-Dateien" accent />
+            <StatCard label="Preiseinträge" value="1,1 Mrd." sub="über 4.365 Tage (2014–2026)" />
+            <StatCard label="Tankstellen" value="> 15.000" sub="deutschlandweit" accent />
+          </div>
+        </div>
+
+        {/* Stationsauswahl */}
+        <div className="bg-white border border-gray-200 p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-800 mb-2">Stationsauswahl — 5 Routen</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Für jede der fünf Himmelsrichtungen (N, NE, E, SW, NW) wird aus dem Ring
+            <strong> 80–120 km um Aalen</strong> die Station mit der höchsten Datenverfügbarkeit
+            ausgewählt. Aus <strong>1.233 Kandidaten</strong> werden fünf Stationen gewählt —
+            automatisiert über Haversine-Distanz und Kompasswinkel.
+          </p>
+          <table className="w-full text-sm mb-4">
+            <thead>
+              <tr className="text-xs text-gray-400 border-b border-gray-100">
+                <th className="text-left pb-2 font-medium">Route</th>
+                <th className="text-left pb-2 font-medium">Marke</th>
+                <th className="text-left pb-2 font-medium">Ort</th>
+                <th className="text-right pb-2 font-medium">Entfernung</th>
+                <th className="text-right pb-2 font-medium">Preis-Ereignisse</th>
+              </tr>
+            </thead>
+            <tbody>
+              {STATIONSAUSWAHL.map(r => (
+                <tr key={r.route} className="border-b border-gray-50 last:border-0">
+                  <td className="py-2 font-bold text-brand-orange">{r.route}</td>
+                  <td className="py-2 text-gray-700">{r.marke}</td>
+                  <td className="py-2 text-gray-700">{r.ort}</td>
+                  <td className="py-2 text-right font-mono text-gray-600">{r.km}</td>
+                  <td className="py-2 text-right font-mono text-gray-600">{r.ev}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Eli5 title="Haversine-Formel — warum nicht einfach Luftlinie auf den Koordinaten?">
+            Die euklidische Distanz auf Längen- und Breitengraden liefert für geographische Abstände
+            systematisch falsche Ergebnisse, weil Längengrade zum Äquator hin konvergieren. Die
+            Haversine-Formel berechnet den <strong>Großkreisabstand</strong> — die kürzeste
+            Verbindung zweier Punkte auf der Kugeloberfläche. So weisen wir jede Station sauber einem
+            Himmelsrichtungssektor zu und wählen je Sektor die Station mit den meisten Ereignissen.
+          </Eli5>
+        </div>
+
+        {/* Interaktive Karte */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-sm font-semibold text-gray-700">Interaktive Karte — Preise als Vektoren</h2>
+            <RealBadge label="Live aus Backend" />
+          </div>
+          <MapExplorer />
+          <p className="text-xs text-gray-400 mt-2">
+            Jeder Pfeil = eine Station · Länge = Preis · Farbe grün (günstig) bis rot (teuer).
+            Im Spedition-Modus zeigen die Linien die fünf Routen ab Aalen, die Pfeile die
+            72-Stunden-Prognose.
+          </p>
+        </div>
 
         {/* Datenzensus */}
         {cov && (
@@ -235,6 +398,16 @@ export default function DataExploration() {
           </div>
         )}
 
+        {/* EDA-Befunde Einleitung */}
+        <div className="bg-brand-cyan/10 border border-brand-cyan/30 p-5">
+          <h2 className="text-sm font-semibold text-brand-charcoal mb-2">Drei Befunde aus der EDA — relevant fürs Modell</h2>
+          <ol className="text-sm text-brand-charcoal/75 space-y-1 list-decimal list-inside">
+            <li><strong>Hohe Korrelation zwischen allen Stationen</strong> (r &gt; 0,95): Der Rohölpreis treibt alle Preise gemeinsam — lokale Unterschiede sind gering, aber vorhersagbar.</li>
+            <li><strong>Intraday-Muster</strong>: Preise steigen morgens, fallen abends. Dieses tägliche Muster ist ein wertvolles Signal.</li>
+            <li><strong>Fehlende Stunden</strong>: Tankstellen melden nur bei Änderungen. Stunden ohne Meldung werden per Vorwärtsfüllung (letzter bekannter Preis) aufgefüllt.</li>
+          </ol>
+        </div>
+
         {/* Datenqualität */}
         {q && (
           <div className="bg-white border border-gray-200 p-5 shadow-sm">
@@ -266,7 +439,7 @@ export default function DataExploration() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white border border-gray-200 p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-sm font-semibold text-gray-700">Preisverteilung (Diesel, B29)</h2>
+                <h2 className="text-sm font-semibold text-gray-700">Preisverteilung (Diesel)</h2>
                 <RealBadge />
               </div>
               <p className="text-xs text-gray-400 mb-4">
@@ -274,17 +447,14 @@ export default function DataExploration() {
                 Jeder Balken = ein Preisbereich · Höhe = Anzahl Stunden.
                 {ps.n_outliers_high > 0 && ` Extreme Ausreißer separat ausgewiesen.`}
               </p>
-              <PriceHistogram
-                data={ps.histogram}
-                nOutliersHigh={ps.n_outliers_high ?? 0}
-              />
+              <PriceHistogram data={ps.histogram} nOutliersHigh={ps.n_outliers_high ?? 0} />
             </div>
             <div className="bg-white border border-gray-200 p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <h2 className="text-sm font-semibold text-gray-700">Preis-Kennzahlen</h2>
                 <RealBadge />
               </div>
-              <p className="text-xs text-gray-400 mb-4">Statistische Zusammenfassung aller Dieselpreise im B29-Datensatz.</p>
+              <p className="text-xs text-gray-400 mb-4">Statistische Zusammenfassung aller Dieselpreise im Datensatz.</p>
               <div className="space-y-2">
                 {[
                   { label: 'Mittelwert',   val: ps.mean, color: 'text-brand-orange' },
@@ -348,13 +518,13 @@ export default function DataExploration() {
         {history.length > 0 && (
           <div className="bg-white border border-gray-200 p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-sm font-semibold text-gray-700">Langzeit-Preisverlauf (Diesel, B29)</h2>
-              {historyMock ? <MockBadge /> : <RealBadge label="Echte B29-Tagesmittel" />}
+              <h2 className="text-sm font-semibold text-gray-700">Langzeit-Preisverlauf (Diesel)</h2>
+              {historyMock ? <MockBadge /> : <RealBadge label="Echte Tagesmittel" />}
             </div>
             <p className="text-xs text-gray-400 mb-4">
               {historyMock
                 ? 'Zeigt aktuell Mock-Daten (Fallback). Backend-Verbindung oder Parquet-Pfad prüfen.'
-                : 'Tägliche Durchschnittspreise (Mittel der 4 B29-Cluster: Aalen, Schwäbisch Gmünd, Schorndorf, Stuttgart).'}
+                : 'Tägliche Durchschnittspreise über den gesamten Beobachtungszeitraum.'}
             </p>
             <PriceLineChart datasets={[{ fuelType: 'diesel', data: history }]} />
           </div>

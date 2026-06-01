@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Sidebar from './components/layout/Sidebar'
-import DataExploration from './pages/DataExploration'
-import GeoExploration  from './pages/GeoExploration'
-import Analyse         from './pages/Analyse'
-import Modellierung    from './pages/Modellierung'
-import Deployment      from './pages/Deployment'
-import Notebooks       from './pages/Notebooks'
-import Setup           from './pages/Setup'
+import BusinessUnderstanding from './pages/BusinessUnderstanding'
+import DataExploration       from './pages/DataExploration'
+import Datenvorbereitung     from './pages/Datenvorbereitung'
+import Modellierung          from './pages/Modellierung'
+import Evaluation            from './pages/Evaluation'
+import Deployment            from './pages/Deployment'
+import Reflexion             from './pages/Reflexion'
+import Notebooks             from './pages/Notebooks'
+import Setup                 from './pages/Setup'
 
 const SHOW_SETUP = import.meta.env.VITE_SHOW_SETUP === 'true'
 
@@ -34,12 +36,14 @@ export default function App() {
         <Sidebar />
         <main className="flex-1 flex flex-col overflow-hidden">
           <Routes>
-            <Route path="/"           element={<DataExploration />} />
-            <Route path="/karte"      element={<GeoExploration />} />
-            <Route path="/analyse"    element={<Analyse />} />
-            <Route path="/modelle"    element={<Modellierung />} />
-            <Route path="/deployment" element={<Deployment />} />
-            <Route path="/notebooks"  element={<Notebooks />} />
+            <Route path="/"             element={<BusinessUnderstanding />} />
+            <Route path="/exploration"  element={<DataExploration />} />
+            <Route path="/vorbereitung" element={<Datenvorbereitung />} />
+            <Route path="/modellierung" element={<Modellierung />} />
+            <Route path="/evaluation"   element={<Evaluation />} />
+            <Route path="/deployment"   element={<Deployment />} />
+            <Route path="/reflexion"    element={<Reflexion />} />
+            <Route path="/notebooks"    element={<Notebooks />} />
           </Routes>
         </main>
       </div>
