@@ -3,6 +3,7 @@ import { DECK_META, CONTENT } from '../../content/presentation'
 import { PHASES } from '../../content/phases'
 import PixelPattern from '../ui/PixelPattern'
 import RecordedFigure from '../walkthrough/RecordedFigure'
+import AllStationsMap from '../map/AllStationsMap'
 
 // Per-phase theme for the divider slides (matches each page's header colour).
 const THEME = {
@@ -132,19 +133,35 @@ export default function PresentationMode({ open, startPhase, onClose }) {
         </div>
         <h1 className="text-5xl font-bold text-brand-charcoal leading-tight mb-8">{slide.title}</h1>
 
-        <div className={`flex-1 grid ${slide.figure ? 'md:grid-cols-2 gap-12' : 'grid-cols-1'} items-start`}>
-          <ul className="space-y-4">
-            {slide.body.map((b, i) => (
-              <li key={i} className="text-2xl text-brand-charcoal/85 leading-snug flex gap-3">
-                <span className="text-brand-orange mt-2 text-sm">●</span>
-                <span>{b}</span>
-              </li>
-            ))}
-          </ul>
-          {slide.figure && (
-            <RecordedFigure name={slide.figure} caption={slide.title} className="self-center" />
-          )}
-        </div>
+        {slide.map ? (
+          <div className="flex-1 flex flex-col gap-4 min-h-0">
+            <ul className="space-y-2">
+              {slide.body.map((b, i) => (
+                <li key={i} className="text-lg text-brand-charcoal/85 leading-snug flex gap-3">
+                  <span className="text-brand-orange mt-1.5 text-xs">●</span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex-1 min-h-[46vh]">
+              <AllStationsMap />
+            </div>
+          </div>
+        ) : (
+          <div className={`flex-1 grid ${slide.figure ? 'md:grid-cols-2 gap-12' : 'grid-cols-1'} items-start`}>
+            <ul className="space-y-4">
+              {slide.body.map((b, i) => (
+                <li key={i} className="text-2xl text-brand-charcoal/85 leading-snug flex gap-3">
+                  <span className="text-brand-orange mt-2 text-sm">●</span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+            {slide.figure && (
+              <RecordedFigure name={slide.figure} caption={slide.title} className="self-center" />
+            )}
+          </div>
+        )}
 
         {slide.deepDive && (
           <div className="mt-6">

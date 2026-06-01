@@ -52,10 +52,10 @@ export const CONTENT = [
     phase: 'data', author: 'Daniel',
     title: 'Befund 1 — alles hängt zusammen',
     body: [
-      'Die fünf Stationen sind extrem hoch korreliert (r > 0,95): der Rohölpreis treibt alle gemeinsam.',
-      'Lokale Unterschiede sind klein — aber genau die wollen wir vorhersagen.',
+      'Alle Stationen folgen demselben Takt — der Rohölpreis treibt ganz Deutschland gemeinsam (Korrelation r > 0,95).',
+      'Die Karte zeigt jede PLZ-Region über alle Jahre: lokale Zusammenhänge und die feinen regionalen Unterschiede, die wir vorhersagen wollen.',
     ],
-    figure: 'eda_correlation.png',
+    map: true,
   },
   {
     phase: 'data', author: 'Daniel',
