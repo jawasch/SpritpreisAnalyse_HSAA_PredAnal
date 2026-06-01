@@ -128,4 +128,4 @@ Studienprojekt — Hochschule Aalen, nicht für den kommerziellen Einsatz.
 
 ## Autoren
 
-Daniel Feil u. a. — Predictive Analytics, HS Aalen, Semester 1
+Jannis Schuler, Daniel Feil — Predictive Analytics, HS Aalen, Semester 1
