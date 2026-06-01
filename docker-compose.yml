@@ -26,17 +26,21 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-spritpreis}:${POSTGRES_PASSWORD:-spritpreis123}@db:5432/${POSTGRES_DB:-spritpreis_analytics}
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
+      # Override .env value — in Docker the raw data is mounted at this path
+      TANKERKOENIG_DATA_PATH: /app/data/tankerkoenig-data
+      # Auto-build missing data files (EDA summary, oil prices, recent station prices)
+      # on every container start. Only builds what's missing — safe to leave on.
+      RUN_SETUP_ON_START: "true"
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
       - ./data:/app/data
-    depends_on:
-      db:
-        condition: service_healthy
+      - ./notebooks:/app/notebooks:ro
+      - ./scripts:/app/scripts:ro
+      - ../tankerkoenig-data:/app/data/tankerkoenig-data:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
 
   # Frontend
@@ -46,30 +50,16 @@ services:
       dockerfile: Dockerfile
     container_name: spritpreis_frontend
     environment:
-      VITE_API_URL: http://localhost:8000
+      VITE_PROXY_TARGET: http://backend:8000
       CHOKIDAR_USEPOLLING: "true"
     ports:
       - "3000:3000"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+      - frontend_node_modules:/app/node_modules
     depends_on:
       - backend
     command: npm run dev -- --host
 
-  # pgAdmin (optional, for database management)
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: spritpreis_pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@spritpreis.local}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
-    ports:
-      - "5050:80"
-    depends_on:
-      - db
-    profiles:
-      - dev
-
 volumes:
-  postgres_data:
+  frontend_node_modules:

@@ -79,3 +79,6 @@ docker-compose.override.yml
 *.tmp
 *.temp
 .temp/
+
+# Models
+*.joblib
