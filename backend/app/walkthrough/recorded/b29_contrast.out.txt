@@ -1,0 +1,13 @@
+════════════════════════════════════════════════════════════════
+  §7 · Reflexion — verworfener B29-Ansatz (4 Cluster)
+════════════════════════════════════════════════════════════════
+  Der ursprüngliche Ansatz fasste bis zu 80 Stationen je Region zu 4 Clustern zusammen:
+    Aalen               5 PLZ-Gebiete  z. B. [73430, 73431, 73432]
+    Schwäbisch Gmünd    5 PLZ-Gebiete  z. B. [73525, 73526, 73527]
+    Schorndorf          5 PLZ-Gebiete  z. B. [73614, 73655, 73660]
+    Stuttgart          36 PLZ-Gebiete  z. B. [70173, 70174, 70176]
+
+  Warum verworfen:
+    1) Kein Mehrwert ggü. Echtzeit-Apps — Nowcasting hätte gereicht.
+    2) Cluster-Mittelung glättet den Preis → künstlich leichte Vorhersage.
+  → Pivot auf 5 konkrete Einzelstationen (Spedition-Modell).

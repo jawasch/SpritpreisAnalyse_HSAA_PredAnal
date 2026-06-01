@@ -2,12 +2,14 @@ import { NavLink } from 'react-router-dom'
 import PixelPattern from '../ui/PixelPattern'
 
 const nav = [
-  { to: '/',           label: 'Datenexploration', step: '01', desc: 'Rohdaten · Ausreißer · Verteilungen' },
-  { to: '/karte',      label: 'Geo-Exploration',  step: '02', desc: 'Karte · Preise als Vektoren'         },
-  { to: '/analyse',    label: 'Analyse',           step: '03', desc: 'Modell-Output · Raum-Zeit-Feld'      },
-  { to: '/modelle',    label: 'Modellierung',      step: '04', desc: 'B29 → Spedition → All-Germany'       },
-  { to: '/deployment', label: 'Deployment',        step: '05', desc: 'Live-Dispatch · 72h-Prognose'        },
-  { to: '/notebooks',  label: 'Notebooks',         step: '06', desc: 'Analyseergebnisse durchstöbern'      },
+  { to: '/',             label: 'Business',          step: '01', desc: 'Problem · Einsparpotenzial · Ziele'       },
+  { to: '/exploration',  label: 'Datenexploration',  step: '02', desc: 'Quelle · Karte · Muster'                  },
+  { to: '/vorbereitung', label: 'Datenvorbereitung', step: '03', desc: '101 Features · Split · Normierung'        },
+  { to: '/modellierung', label: 'Modellierung',      step: '04', desc: 'MLP · Architektur · Cross-Validation'     },
+  { to: '/evaluation',   label: 'Evaluation',        step: '05', desc: 'Metriken · Test · Impact'                 },
+  { to: '/deployment',   label: 'Deployment',        step: '06', desc: 'Live-Dispatch · 72h-Prognose'             },
+  { to: '/reflexion',    label: 'Reflexion',         step: '07', desc: 'Kurskorrektur · Grenzen · Ausblick'       },
+  { to: '/notebooks',    label: 'Notebooks',         step: '·',  desc: 'Die vier Projekt-Notebooks'               },
 ]
 
 export default function Sidebar() {

@@ -24,6 +24,10 @@ fastparquet==2024.11.0
 statsmodels==0.14.4
 holidays==0.64
 
+# Figure generation for the guided-walkthrough step runner (scripts/walkthrough_run.py)
+matplotlib==3.9.2
+tqdm==4.66.5
+
 # ========================================
 # DATABASE (schema kept as docs, not used at runtime)
 # ========================================
@@ -80,6 +84,9 @@ loguru==0.7.2
 jupyter==1.0.0
 nbformat==5.9.2
 nbconvert==7.14.1
+# nbconvert 7.14's MathBlockParser uses mistune 2.x internals (parse_axt_heading).
+# mistune 3.x removed them → "object has no attribute 'parse_axt_heading'". Pin to 2.x.
+mistune>=2.0.3,<3
 ipykernel==6.29.0
 ipython==8.20.0
 

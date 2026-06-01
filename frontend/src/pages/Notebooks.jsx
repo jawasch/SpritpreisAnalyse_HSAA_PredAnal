@@ -54,9 +54,9 @@ export default function Notebooks() {
       {/* Left sidebar — notebook list */}
       <aside className="w-64 shrink-0 bg-brand-charcoal flex flex-col overflow-hidden">
         <div className="relative overflow-hidden px-4 py-4 border-b border-white/10">
-          <p className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-0.5">Schritt 06 · CRISP-DM</p>
+          <p className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-0.5">Anhang · CRISP-DM</p>
           <h2 className="text-sm font-bold text-white uppercase">Notebooks</h2>
-          <p className="text-xs text-white/30 mt-0.5">Analyseergebnisse</p>
+          <p className="text-xs text-white/30 mt-0.5">Quellcode &amp; Analyseergebnisse</p>
           <PixelPattern color1="rgba(255,255,255,0.06)" color2="transparent" size={20} steps={3}
             className="absolute top-0 right-0" />
         </div>
