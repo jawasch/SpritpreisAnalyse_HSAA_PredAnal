@@ -4,19 +4,21 @@ import GeoPriceMap3D from '../../map/GeoPriceMap3D'
 
 const FUEL_TYPES = ['diesel', 'e5', 'e10']
 const SCENARIOS = [
-  { value: 'spedition', label: 'Spedition (5 Routen)', desc: '5 konkrete Stationen · MLP-Prognose 72h' },
-  { value: 'b29',       label: 'B29 (4 Cluster)',      desc: 'Korridor Aalen→Stuttgart' },
-  { value: 'all',       label: 'Alle Stationen',       desc: '~95 Regionen · Animation über alle Jahre' },
+  { value: 'spedition_ring', label: 'Auswahl-Ring',         desc: '1 233 Kandidaten je Himmelsrichtung · 5 gewählte hervorgehoben' },
+  { value: 'spedition',      label: 'Spedition (5 Routen)', desc: '5 konkrete Stationen · MLP-Prognose 72h' },
+  { value: 'b29',            label: 'B29 (4 Cluster)',      desc: 'Korridor Aalen→Stuttgart' },
+  { value: 'all',            label: 'Alle Stationen',       desc: '~95 Regionen · Animation über alle Jahre' },
 ]
 
 /**
  * Live "Modell-Preis-Feld" for the presentation: the same interactive 3D vector
- * map shown on the Data-Exploration page, embedded into the slide flow. Defaults
- * to the Spedition scenario so the deck switches straight to the model output.
+ * map shown on the Data-Exploration page, embedded into the slide flow.
+ * `initialScenario` lets a slide open straight on a given view (e.g. the
+ * candidate ring for "Optimierungsstrategie").
  */
-export default function ExplorationMapEmbed() {
+export default function ExplorationMapEmbed({ initialScenario = 'spedition' }) {
   const [fuelType, setFuelType] = useState('diesel')
-  const [scenario, setScenario] = useState('spedition')
+  const [scenario, setScenario] = useState(initialScenario)
   const [data,     setData]     = useState(null)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(null)
