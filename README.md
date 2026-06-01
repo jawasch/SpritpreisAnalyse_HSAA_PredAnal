@@ -1,219 +1,131 @@
-# 🚗⛽ Spritpreis Analytics Dashboard
+# Spritpreisanalyse mit Multi-Layer Perceptron
 
-Ein transparentes, minimalistisches Dashboard zur Analyse und Vorhersage von Spritpreisen in Deutschland und Europa mit Predictive Analytics.
+Studienprojekt — HS Aalen, Modul Predictive Analytics, Semester 1
 
-## 🎯 Projektvision
+## Projektziel
 
-Diese Anwendung ermöglicht:
-- **Echtzeit-Preisanalyse** von über 14.000+ Tankstellen
-- **Predictive Analytics** für zukünftige Preisentwicklungen
-- **Zeitanalyse**: Wann ist tanken am günstigsten?
-- **Policy Impact Analysis**: Wie wirken sich politische Eingriffe aus?
-- **Rohölpreis-Korrelation**: Zusammenhang zwischen Rohöl und Tankstellenpreisen
+Ein Speditionsunternehmen betreibt 25 LKWs auf fünf Festrouten (je ~100 km ab Aalen). Das Modell sagt vorher, **welche der fünf Stationen in den nächsten 72 Stunden am günstigsten für Diesel ist** — damit der Disponent die Rückkehrtankstopps kostenoptimiert planen kann.
 
-## 🏗️ Technologie-Stack
+Geschätztes Einsparpotenzial: **ca. 19.300 €/Jahr** gegenüber zufälliger Stationswahl (bei Ø 7,93 ct/L Preisunterschied zwischen den Stationen und 3.750 L Tagesverbrauch der Flotte).
 
-### Backend
-- **Framework**: FastAPI (Python 3.10+)
-- **Datenbank**: PostgreSQL
-- **ORM**: SQLAlchemy
-- **Validierung**: Pydantic
+## Ergebnisse (Testdatensatz Jan 2024 – Mai 2026)
 
-### Frontend
-- **Framework**: React
-- **Visualisierung**: D3.js
-- **Styling**: Tailwind CSS / Material-UI
+| Metrik | Baseline (Dummy) | MLP `(32,)` |
+|---|---|---|
+| MAE | 0,454 €/L | **0,026 €/L** |
+| RMSE | 0,485 €/L | **0,036 €/L** |
+| R² | — | **0,955** |
+| Skill Score | — | **94,3 %** |
+| Pick Accuracy (günstigste Station) | 20 % (Zufall) | **46,0 %** |
+| Ø Spearman ρ (Stationsranking) | — | **0,496** |
 
-### Predictive Analytics
-- **Zeitreihen**: Prophet (Facebook)
-- **Statistik**: statsmodels (ARIMA/SARIMAX)
-- **Deep Learning**: TensorFlow/Keras (LSTM)
-- **ML**: scikit-learn
-- **Datenverarbeitung**: pandas, numpy
+## Methodik (CRISP-DM)
 
-### Infrastructure
-- **Containerization**: Docker & Docker Compose
-- **Deployment**: Cloudflare Tunnel (geplant)
+### Daten
 
-## 📊 Datenquellen
+- **Quelle:** Tankerkönig Open Data — ~87 GB historische CSV-Dateien
+- **Umfang:** 1,1 Mrd. Preiseinträge, 2014–2026, 15.000+ Tankstellen
+- **Stationsauswahl:** 5 Stationen per Haversine-Distanz und Datenverfügbarkeit aus einem 80–120-km-Ring um Aalen (je eine pro Himmelsrichtung: N, NE, E, NW, SW)
 
-### Spritpreise
-- **Tankerkönig API** (Deutschland)
-  - Echtzeit-Preise
-  - Historische Daten seit Juni 2014
-  - Lizenz: CC BY 4.0
+| Route | Marke | Ort | Preis-Ereignisse |
+|---|---|---|---|
+| N | AVIA | Ipsheim | 131.857 |
+| NE | AVIA | Nürnberg | 111.210 |
+| E | ESSO | Olching | 102.641 |
+| NW | AVIA | Mühlhausen | 128.574 |
+| SW | RAN | Biberach | 111.145 |
 
-### Rohölpreise
-- **U.S. Energy Information Administration (EIA) API**
-  - Brent Crude Oil
-  - WTI Crude Oil
-  - Historische und aktuelle Daten
+### Feature Engineering
 
-### Zukünftig (Europa-Erweiterung)
-- Weitere nationale APIs für europäische Länder
+101 Input-Features je Zeitschritt: Lag-Preise (t−1h bis t−168h), gleitende Mittelwerte und Standardabweichungen, Trend, Momentum, zyklische Zeit (Sinus/Kosinus für Stunde und Wochentag), Kalender-Flags (Wochenende, Feiertag).
 
-## 📁 Projektstruktur
+### Modell
+
+**MLPRegressor** (`scikit-learn`) — Multi-Output-Regression: ein Modell sagt gleichzeitig **5 Stationen × 72 Zeithorizonte = 360 Ausgabewerte** vorher.
+
+Finale Architektur: `hidden_layer_sizes=(32,)`, ReLU, `early_stopping=True`, `learning_rate=adaptive`.
+
+Zeitlicher Datensplit (kein Shuffle):
+
+| Datensatz | Zeitraum | Einträge |
+|---|---|---|
+| Training | Jun 2014 – Dez 2021 | 66.159 |
+| Validierung | Jan 2022 – Dez 2023 | 17.520 |
+| Test | Jan 2024 – heute | 20.829 |
+
+## Projektstruktur
 
 ```
-spritpreis-analytics/
-├── backend/                 # FastAPI Backend
-│   ├── app/
-│   │   ├── api/            # API Routes
-│   │   ├── models/         # SQLAlchemy Models
-│   │   ├── schemas/        # Pydantic Schemas
-│   │   ├── services/       # Business Logic
-│   │   └── ml/             # Machine Learning Models
-│   └── requirements.txt
-├── frontend/               # React Frontend
-│   ├── src/
-│   │   ├── components/    # React Components
-│   │   └── services/      # API Communication
-│   └── package.json
-├── data/                  # Data Storage
-│   ├── raw/              # Raw API Data
-│   ├── processed/        # Processed Data
-│   └── models/           # Trained ML Models
-├── notebooks/            # Jupyter Notebooks
-└── docs/                 # Documentation
+SpritpreisAnalyse_HSAA_PredAnal/
+├── notebooks/
+│   └── spedition_mlp.ipynb          # Hauptnotebook (vollständiger CRISP-DM-Ablauf)
+├── scripts/
+│   ├── data_transform_spedition.py  # SpeditionDataLoader: CSV → Features → Split
+│   ├── data_transform.py            # Gemeinsame Konstanten und Hilfsfunktionen
+│   ├── model_utils.py               # Training, Evaluation, Dispatch-Empfehlung
+│   ├── viz_utils.py                 # Alle Diagramme
+│   └── geo_utils.py                 # Haversine, Sektorauswahl
+├── data/
+│   ├── processed/                   # Parquet-Cache (verhindert wiederholten 87-GB-Scan)
+│   └── models/
+│       └── spedition_mlp.joblib     # Trainiertes Modell inkl. Scaler
+└── docs/
+    └── handout-documentation.md     # Vollständige Projektdokumentation
 ```
 
-## 🚀 Entwicklungsplan
-
-### Phase 1: Dateninfrastruktur (Woche 1-2)
-- [ ] API-Keys beantragen (Tankerkönig, EIA)
-- [ ] Datenbank-Schema designen
-- [ ] Daten-Import-Pipeline
-- [ ] Explorative Datenanalyse
-
-### Phase 2: Backend Development (Woche 3-5)
-- [ ] FastAPI Setup
-- [ ] REST API Endpoints
-- [ ] Daten-Fetcher Services
-- [ ] Scheduled Jobs
-
-### Phase 3: ML Pipeline (Woche 6-8)
-- [ ] Feature Engineering
-- [ ] Prophet Modell
-- [ ] LSTM Modell
-- [ ] Model Evaluation
-
-### Phase 4: Frontend Development (Woche 9-11)
-- [ ] React Setup
-- [ ] Dashboard Components
-- [ ] D3.js Visualisierungen
-- [ ] Responsive Design
-
-### Phase 5: Integration & Testing (Woche 12)
-- [ ] End-to-End Integration
-- [ ] Testing
-- [ ] Docker Setup
-- [ ] Dokumentation
-
-### Phase 6: Analyse & Dokumentation (Woche 13-14)
-- [ ] Policy Impact Analysen
-- [ ] Wissenschaftliche Auswertung
-- [ ] Präsentationsmaterialien
-
-## 🛠️ Setup & Installation
+## Setup
 
 ### Voraussetzungen
-- Python 3.10+
-- Node.js 18+
-- PostgreSQL 14+
-- Docker & Docker Compose (optional)
 
-### Backend Setup
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+```
+pandas numpy matplotlib seaborn scikit-learn pyarrow python-dotenv holidays joblib
 ```
 
-### Frontend Setup
-```bash
-cd frontend
-npm install
+### Datenpfad konfigurieren
+
+Erstelle eine `.env`-Datei im Projektroot:
+
+```
+TANKERKOENIG_DATA_PATH=../tankerkoenig-data
 ```
 
-### Datenbank Setup
-```bash
-# PostgreSQL Datenbank erstellen
-createdb spritpreis_analytics
-```
-
-### Umgebungsvariablen
-Erstelle `.env` Dateien basierend auf `.env.example`
-
-## 📈 Features
-
-### Dashboard
-- Aktuelle Durchschnittspreise (E5, E10, Diesel)
-- Preisentwicklung (interaktive Zeitreihen)
-- Top günstigste Tankstellen in der Nähe
-- Empfehlungen: "Jetzt tanken" oder "Besser warten bis..."
-
-### Predictive Analytics
-- Kurzfrist-Prognose (24-72 Stunden)
-- Mittelfrist-Prognose (1-4 Wochen)
-- Konfidenzintervalle
-- Beste Zeit zum Tanken
-
-### Uhrzeitanalyse
-- Heatmap: Preise nach Uhrzeit/Wochentag
-- Statistik: Günstigste vs. teuerste Stunden
-- Wochenend- vs. Wochentagsmuster
-
-### Regionale Analyse
-- Karte mit Preisen nach Bundesländern
-- Stadt vs. Autobahn Vergleich
-- Markenvergleich
-
-### Policy Impact Analysis
-- Timeline politischer Ereignisse
-- Vorher/Nachher-Analysen
-- Statistische Signifikanz
-
-## 📚 API Dokumentation
-
-Nach dem Start des Backends ist die API-Dokumentation verfügbar unter:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## 🧪 Testing
+Die Tankerkönig-Rohdaten (~87 GB) müssen als separates Repository vorhanden sein:
 
 ```bash
-# Backend Tests
-cd backend
-pytest
-
-# Frontend Tests
-cd frontend
-npm test
+cd ../tankerkoenig-data && git pull
 ```
 
-## 📝 Lizenz
+### Modell ausführen
 
-Dieses Projekt ist ein Studienprojekt für die Hochschule Aalen.
+Notebook öffnen und ausführen:
 
-**Datenquellen-Lizenzen:**
-- Tankerkönig API: CC BY 4.0 (Namensnennung erforderlich)
-- Historische Spritpreisdaten: BY-NC-SA-4.0 (nicht-kommerziell)
-- EIA API: Public Domain (U.S. Government Data)
+```bash
+jupyter lab notebooks/spedition_mlp.ipynb
+```
 
-## 👥 Autoren
+Der `SpeditionDataLoader` liest beim ersten Lauf die CSV-Rohdaten parallel ein und legt einen Parquet-Cache an. Folgeläufe verwenden den Cache.
 
-Studienprojekt - Predictive Analytics
-Hochschule Aalen, Semester 1
+### Dispatch-Empfehlung
 
-## 🙏 Danksagungen
+```python
+from scripts.model_utils import recommend_cheapest_station
 
-- Tankerkönig.de für die freie API und historische Daten
-- U.S. Energy Information Administration für Rohölpreisdaten
-- Bundeskartellamt MTS-K für Spritpreisdaten
+recommend_cheapest_station(model, X_latest, horizon_h=8)
+# → Route_NE (€1.901/L) > Route_NW (€1.936/L) > ...
+```
 
----
+## Kurskorrektur
 
-**Status**: 🚧 In Entwicklung
+Der ursprüngliche Ansatz (B29-Korridor, regionale Clustervorhersage aus 80 Stationen) wurde verworfen, weil (1) Nowcasting per App das Problem in der Praxis bereits löst und (2) die Mittelwertbildung über viele Stationen das Signal künstlich glättet und gute Metriken erzeugt, ohne echten Modellwert. Begründung vollständig in `docs/handout-documentation.md`, Abschnitt 7.
 
-Letztes Update: Mai 2026
+## Lizenz
+
+Studienprojekt — Hochschule Aalen, nicht für den kommerziellen Einsatz.
+
+**Datenquellen:**
+- Tankerkönig Open Data: CC BY 4.0 / BY-NC-SA 4.0
+- Bundeskartellamt MTS-K
+
+## Autoren
+
+Daniel Feil u. a. — Predictive Analytics, HS Aalen, Semester 1
