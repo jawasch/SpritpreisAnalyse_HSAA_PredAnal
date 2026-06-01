@@ -25,30 +25,11 @@ statsmodels==0.14.4
 holidays==0.64
 
 # ========================================
-# DATABASE (schema kept as docs, not used at runtime)
+# DATABASE
 # ========================================
 sqlalchemy==2.0.25
 psycopg2-binary==2.9.9
 alembic==1.13.1
-pyarrow==11.0.0
-fastparquet==2024.11.0
-
-# ========================================
-# DATA PROCESSING
-# ========================================
-pandas==2.1.4
-numpy==1.26.3
-matplotlib==3.8.2
-seaborn==0.13.1
-
-# ========================================
-# MACHINE LEARNING & PREDICTIVE ANALYTICS
-# ========================================
-scikit-learn==1.4.0
-prophet==1.1.5              # Facebook Prophet for time series forecasting
-statsmodels==0.14.1         # ARIMA/SARIMAX models
-tensorflow==2.15.0          # Deep Learning (LSTM)
-keras==2.15.0
 
 # ========================================
 # API CLIENTS & EXTERNAL SERVICES
@@ -80,6 +61,7 @@ loguru==0.7.2
 jupyter==1.0.0
 nbformat==5.9.2
 nbconvert==7.14.1
+mistune>=2.0.3,<3
 ipykernel==6.29.0
 ipython==8.20.0
 

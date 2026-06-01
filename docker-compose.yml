@@ -62,4 +62,5 @@ services:
     command: npm run dev -- --host
 
 volumes:
+  postgres_data:
   frontend_node_modules:
