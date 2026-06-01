@@ -62,7 +62,6 @@ data/models/*.pkl
 data/models/*.h5
 data/models/*.pb
 data/models/*.joblib
-docs/*.png
 # Logs
 *.log
 logs/
