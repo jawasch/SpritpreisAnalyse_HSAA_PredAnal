@@ -10,9 +10,11 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from fastapi.staticfiles import StaticFiles
+
 from .api import (
     analytics, eda, models_api, notebooks, oil,
-    predictions, prices, recent_prices, setup, stations,
+    predictions, prices, recent_prices, setup, stations, walkthrough,
 )
 
 load_dotenv()
@@ -119,6 +121,12 @@ app.include_router(eda.router,           prefix="/api/v1/eda",                ta
 app.include_router(models_api.router,    prefix="/api/v1/models",             tags=["Models"])
 app.include_router(oil.router,           prefix="/api/v1/oil",                tags=["Oil"])
 app.include_router(setup.router,         prefix="/api/v1/setup",              tags=["Setup"])
+app.include_router(walkthrough.router,   prefix="/api/v1/walkthrough",        tags=["Walkthrough"])
+
+# Recorded walkthrough figures (PNG) served statically for the guided terminal / presentation.
+_WT_ASSETS = Path(__file__).resolve().parent / "walkthrough" / "recorded"
+_WT_ASSETS.mkdir(parents=True, exist_ok=True)
+app.mount("/api/v1/walkthrough-assets", StaticFiles(directory=str(_WT_ASSETS)), name="walkthrough-assets")
 
 
 if __name__ == "__main__":

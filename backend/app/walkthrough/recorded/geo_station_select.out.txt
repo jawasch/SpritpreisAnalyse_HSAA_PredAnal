@@ -1,0 +1,13 @@
+════════════════════════════════════════════════════════════════
+  §2 · Data Understanding — Stationsauswahl (Haversine + Sektor)
+════════════════════════════════════════════════════════════════
+  15,442 Tankstellen geladen — berechne Distanz & Kompasswinkel zu Aalen …
+  Ring 80–120 km um Aalen: 1,252 Kandidaten
+
+  Gewählte Station je Himmelsrichtungssektor (max. Datenverfügbarkeit):
+  Diese 5 Stationen sind in SPEDITION_STATIONS hinterlegt:
+    Route_E   → 19275bf1-8186-47d8-b5eb-261431afaced
+    Route_N   → af8b14d6-0af5-4d86-a2d5-947dc569fd9a
+    Route_NE  → db307731-f6c4-4c45-9af4-1058e9b23397
+    Route_NW  → 7bbb852b-e04e-48db-a1ee-8835cdbb9757
+    Route_SW  → 62c42eb1-3776-4c5c-aec5-22148a267465

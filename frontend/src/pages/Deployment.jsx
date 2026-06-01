@@ -4,6 +4,7 @@ import Eli5 from '../components/Eli5'
 import MultiStationForecastChart from '../components/charts/MultiStationForecastChart'
 import PickAccuracyChart from '../components/charts/PickAccuracyChart'
 import PixelPattern from '../components/ui/PixelPattern'
+import { formatPrice, formatEuro, formatNumber, formatPct } from '../utils/format'
 
 const ARBEITSTAGE = 250
 
@@ -63,9 +64,9 @@ function FlottenKalkulator({ defaultTrucks = 25, defaultDailyLiters = 150, savin
         </div>
         <div className="space-y-2">
           {[
-            { label: 'Ersparnis je LKW/Tag', val: `€ ${savingsPerTruckDay.toFixed(2)}`, bg: 'bg-gray-50' },
-            { label: `Pro Tag (${numTrucks} Fahrzeuge)`, val: `€ ${savingsPerDay.toFixed(2)}`, bg: 'bg-green-50 border border-green-100' },
-            { label: `Hochrechnung pro Jahr (${ARBEITSTAGE} Tage)`, val: `€ ${savingsPerYear.toLocaleString('de-DE', { maximumFractionDigits: 0 })}`, bg: 'bg-green-100 border border-green-200 font-bold' },
+            { label: 'Ersparnis je LKW/Tag', val: formatEuro(savingsPerTruckDay, 2, { symbolFirst: true }), bg: 'bg-gray-50' },
+            { label: `Pro Tag (${numTrucks} Fahrzeuge)`, val: formatEuro(savingsPerDay, 2, { symbolFirst: true }), bg: 'bg-green-50 border border-green-100' },
+            { label: `Hochrechnung pro Jahr (${ARBEITSTAGE} Tage)`, val: formatEuro(savingsPerYear, 0, { symbolFirst: true }), bg: 'bg-green-100 border border-green-200 font-bold' },
           ].map(c => (
             <div key={c.label} className={`rounded-lg p-3 ${c.bg}`}>
               <p className="text-xs text-gray-500">{c.label}</p>
@@ -113,13 +114,13 @@ function DispatchTable({ recs }) {
                     <span className="ml-2 text-xs text-gray-400">{r.distance_km} km</span>
                   )}
                 </td>
-                <td className="py-2.5 text-right font-mono text-gray-700">{r.current_price.toFixed(3)}</td>
+                <td className="py-2.5 text-right font-mono text-gray-700">{formatPrice(r.current_price)}</td>
                 <td className={`py-2.5 text-right font-mono font-semibold ${isCheapest ? 'text-green-700' : 'text-gray-800'}`}>
-                  {r.predicted_best_price.toFixed(3)}
+                  {formatPrice(r.predicted_best_price)}
                 </td>
                 <td className="py-2.5 text-right text-gray-500 text-xs">{r.optimal_time_label}</td>
                 <td className="py-2.5 text-right text-green-600 font-mono text-xs">
-                  {r.savings_vs_now > 0 ? `−${r.savings_vs_now.toFixed(4)}` : '–'}
+                  {r.savings_vs_now > 0 ? `−${formatPrice(r.savings_vs_now, 4)}` : '–'}
                 </td>
               </tr>
             )
@@ -177,12 +178,12 @@ export default function Deployment() {
                   <span className="text-sm font-semibold text-brand-charcoal">{data.model?.name}</span>
                   <span className="text-xs text-brand-charcoal/60 font-mono">{data.model?.architecture}</span>
                   <span className="text-xs bg-amber-100 text-amber-800 rounded-full px-2.5 py-0.5 font-semibold">Diesel</span>
-                  {data.model?.mae && <MetricChip label="MAE" value={`${data.model.mae.toFixed(4)} €/L`} />}
-                  {data.model?.r2  && <MetricChip label="R²"  value={data.model.r2.toFixed(3)} />}
+                  {data.model?.mae && <MetricChip label="MAE" value={`${formatPrice(data.model.mae, 4)} €/L`} />}
+                  {data.model?.r2  && <MetricChip label="R²"  value={formatNumber(data.model.r2, 3)} />}
                   {data.model?.pick_accuracy_t1 && (
-                    <MetricChip label="Pick-Acc t+1h" value={`${(data.model.pick_accuracy_t1 * 100).toFixed(0)} %`} />
+                    <MetricChip label="Pick-Acc t+1h" value={formatPct(data.model.pick_accuracy_t1, 0)} />
                   )}
-                  {data.savings && <SavingsBadge text={`€ ${data.savings.per_day_eur?.toFixed(0)}/Tag · ${data.savings.trucks} Fzg.`} />}
+                  {data.savings && <SavingsBadge text={`${formatEuro(data.savings.per_day_eur, 0, { symbolFirst: true })}/Tag · ${data.savings.trucks} Fzg.`} />}
                 </div>
                 {data.parquet_last && (
                   <p className="text-xs text-brand-charcoal/50 mt-1.5">

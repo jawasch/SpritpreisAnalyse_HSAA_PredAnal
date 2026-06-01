@@ -1,0 +1,13 @@
+════════════════════════════════════════════════════════════════
+  §7 · Reflexion — B29-Cluster-Modell (verworfener Ansatz) wirklich trainieren
+════════════════════════════════════════════════════════════════
+[B29DataLoader] Loading from cache: /app/data/processed/b29_hourly_diesel_all_all.parquet
+  Train : 2014-06-15 09:00:00  →  2021-12-31 23:00:00  (66,159 rows)
+  Val   : 2022-01-01 00:00:00  →  2023-12-31 23:00:00  (17,520 rows)
+  Test  : 2024-01-01 00:00:00  →  2026-05-17 23:00:00  (20,832 rows)
+
+  Feature-Matrix: X=(104511, 80), y=(104511, 288)  (4 Cluster × 72 h)
+  Trainiere MLP (128, 64) auf den Cluster-Daten …
+    konvergiert nach 568 Iterationen (952s)
+    Validation:  MAE=0.0405 €/L   R²=0.8843
+  ✓ Modell gespeichert: b29_mlp.joblib — der Persistence-Fallback ist damit abgelöst.

@@ -3,6 +3,7 @@ import { api } from '../services/api'
 import Eli5 from '../components/Eli5'
 import MultiStationForecastChart from '../components/charts/MultiStationForecastChart'
 import PixelPattern from '../components/ui/PixelPattern'
+import RecordedFigure from '../components/walkthrough/RecordedFigure'
 
 const STEPS = [
   { id: 'algorithmus',  label: 'Algorithmus: MLP' },
@@ -296,7 +297,9 @@ function SectionArchitektur() {
         </p>
       </div>
       <ArchTable title="Experiment 1 — geduldige Parameter" subtitle="tol=1e-5, n_iter_no_change=100" rows={exp1} />
+      <RecordedFigure name="arch_patient.png" caption="Experiment 1 — Val MAE je Architektur (geduldig)" />
       <ArchTable title="Experiment 2 — Standardparameter" subtitle="n_iter_no_change=50, max_iter=1000" rows={exp2} />
+      <RecordedFigure name="arch_std.png" caption="Experiment 2 — Val MAE je Architektur (Standard)" />
       <div className="bg-brand-cyan/10 border border-brand-cyan/30 p-5">
         <h3 className="text-sm font-semibold text-brand-charcoal mb-2">Wichtige Beobachtungen</h3>
         <ul className="text-sm text-brand-charcoal/75 space-y-1 list-disc list-inside">
@@ -368,6 +371,9 @@ function SectionCV() {
             </tr>
           </tbody>
         </table>
+        <div className="mt-4">
+          <RecordedFigure name="cv_folds.png" caption="Cross-Validation — Fold-Vorhersagen vs. Actual" />
+        </div>
       </div>
 
       <div className="bg-brand-cyan/10 border border-brand-cyan/30 p-5">

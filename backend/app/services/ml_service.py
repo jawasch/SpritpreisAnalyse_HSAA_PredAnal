@@ -258,12 +258,18 @@ class MLService:
             self._b29_df = pd.read_parquet(B29_PARQUET)
             logger.info("[ml_service] B29 parquet loaded, shape=%s", self._b29_df.shape)
 
-        if self._b29_artifact is None and B29_MODEL.exists():
-            import joblib
-            logger.info("[ml_service] Loading b29_mlp.joblib …")
-            self._b29_artifact = joblib.load(B29_MODEL)
+        # (Re)load the model when the file appears or changes on disk (e.g. after a
+        # Reload/retrain), so a freshly trained joblib is picked up without a restart.
+        if B29_MODEL.exists():
+            mtime = B29_MODEL.stat().st_mtime
+            if self._b29_artifact is None or getattr(self, "_b29_mtime", None) != mtime:
+                import joblib
+                logger.info("[ml_service] Loading b29_mlp.joblib (mtime=%s) …", mtime)
+                self._b29_artifact = joblib.load(B29_MODEL)
+                self._b29_mtime = mtime
 
         if not B29_MODEL.exists():
+            self._b29_artifact = None
             logger.warning("[ml_service] b29_mlp.joblib not found — using persistence fallback. "
                            "Run notebooks/b29_fleet_mlp.ipynb to generate the model.")
 
@@ -378,6 +384,17 @@ class MLService:
         artifact, df = self._load_b29()
         now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
         model_available = artifact is not None
+
+        # Probe the full pipeline on one row — if the model is incompatible or errors,
+        # fall back to persistence instead of 500ing.
+        if model_available:
+            try:
+                _probe = _build_features(df.iloc[-200:]).iloc[[-1]][artifact["feature_columns"]]
+                _yp = artifact["model"].predict(artifact["scaler_X"].transform(_probe))
+                artifact["scaler_y"].inverse_transform(_yp)
+            except Exception as exc:
+                logger.warning("[ml_service] b29 model unusable (%s) — persistence fallback.", exc)
+                model_available = False
 
         if model_available:
             feat_df = _build_features(df.iloc[-200:])
@@ -638,13 +655,13 @@ class MLService:
             for s in sp["stations"]:
                 route_key = s["route"]
                 meta = ROUTE_META.get(route_key, {})
-                # 24h timeseries from the 72h forecast
+                # full 72h forecast (so a sub-window can be selected on the map)
                 prices_list = [
                     {
                         "timestamp": (now_utc + timedelta(hours=h)).isoformat(),
                         "price":     s["forecast"][h - 1]["predicted_price"] if h > 0 else s["current_price"],
                     }
-                    for h in range(24)
+                    for h in range(min(73, len(s["forecast"]) + 1))
                 ]
                 stations_out.append({
                     "id":    s["id"],
@@ -681,7 +698,7 @@ class MLService:
                         "timestamp": (now_utc + timedelta(hours=h)).isoformat(),
                         "price":     c["forecast"][h - 1]["predicted_price"] if h > 0 else c["current_price"],
                     }
-                    for h in range(24)
+                    for h in range(min(73, len(c["forecast"]) + 1))
                 ]
                 stations_out.append({
                     "id":     c["id"],
@@ -759,10 +776,13 @@ class MLService:
                     for hour in range(24)
                 ]
             else:
-                # Fallback: estimate from brand/seed/hour offsets
+                # Fallback estimate: national base + brand offset + a SMALL deterministic
+                # per-station offset (±1,5 ct, was ±4 ct → less "noisy"). The shared
+                # intraday curve (_HOUR_OFFSETS) below makes all columns rise/fall together
+                # so the all-stations view reads as one coherent wave over the day.
                 b_off = _brand_offset(brand)
                 h = int(hashlib.md5(f"{uuid}-{fuel_type}".encode()).hexdigest()[:6], 16)
-                seed = (h % 81 - 40) / 1000.0
+                seed = (h % 31 - 15) / 1000.0
                 base = round(base_national + b_off + seed + wd_off, 4)
                 prices_list = [
                     {

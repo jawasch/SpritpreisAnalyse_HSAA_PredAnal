@@ -4,6 +4,7 @@ import Eli5 from '../components/Eli5'
 import GeoPriceMap3D from '../components/map/GeoPriceMap3D'
 import PickAccuracyChart from '../components/charts/PickAccuracyChart'
 import PixelPattern from '../components/ui/PixelPattern'
+import RecordedFigure from '../components/walkthrough/RecordedFigure'
 
 const METRIKEN = [
   { name: 'MAE — Wie weit daneben im Schnitt?', text: 'Im Durchschnitt liegst du X Cent pro Liter daneben. Kleiner ist besser. 0 wäre perfekt — kommt in der Praxis nicht vor.' },
@@ -132,6 +133,9 @@ export default function Evaluation() {
               Skill = (1 − 0,026 / 0,454) × 100 = <strong className="text-green-700">94,3 %</strong>
             </p>
           </div>
+          <div className="mt-4">
+            <RecordedFigure name="mae_rmse_horizon.png" caption="MAE & RMSE je Forecast-Horizont" />
+          </div>
         </div>
 
         {/* Pick-Accuracy live chart + Horizont-Tabelle */}
@@ -168,6 +172,9 @@ export default function Evaluation() {
               Das Modell ist bei <strong>t+24h</strong> am präzisesten — der Tagesrhythmus (Preise
               steigen morgens, fallen abends) ist bei 24h-Vorschau besonders ausgeprägt.
             </p>
+            <div className="mt-3">
+              <RecordedFigure name="pick_accuracy_horizon.png" caption="Cheapest-Station Pick Accuracy je Horizont" />
+            </div>
           </div>
         </div>
 
@@ -188,6 +195,12 @@ export default function Evaluation() {
         {/* Kritische Interpretation */}
         <div className="bg-white border border-gray-200 p-6 shadow-sm space-y-4">
           <h2 className="text-lg font-bold text-gray-800">Kritische Interpretation</h2>
+
+          <p className="text-sm text-gray-600">
+            14 Tage Actual vs. Predicted bei t+72h für alle fünf Routen — dem schwierigsten Horizont.
+            Der Trend wird konsistent getroffen; Preisspitzen werden geglättet statt ausgeschlagen.
+          </p>
+          <RecordedFigure name="actual_vs_pred_14d.png" caption="14-Tage Actual vs. Predicted (Horizont t+72h)" />
 
           <div>
             <h3 className="text-sm font-semibold text-gray-700 mb-1">Zwei Schichten: Preisniveau vs. Stationsranking</h3>
