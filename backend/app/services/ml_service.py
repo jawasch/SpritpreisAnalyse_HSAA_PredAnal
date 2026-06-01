@@ -30,6 +30,7 @@ B29_MODEL         = MODELS_DIR    / "b29_mlp.joblib"
 SPEDITION_PARQUET = PROCESSED_DIR / "spedition_5stations_diesel_all_all.parquet"
 B29_PARQUET       = PROCESSED_DIR / "b29_hourly_diesel_all_all.parquet"
 STATIONS_GEO      = PROCESSED_DIR / "stations_geo.parquet"
+CANDIDATES_PARQUET = PROCESSED_DIR / "candidates_events.parquet"  # 1233 ring candidates w/ sector
 
 # Paths for all-Germany models (created by notebooks/all_germany_web_mlp.ipynb)
 ALL_GERMANY_MODELS = {
@@ -93,6 +94,11 @@ ROUTE_META: dict[str, dict] = {
     "Route_SW": {"name": "RAN Biberach",    "distance_km": 86,  "color": "#ef4444",
                  "uuid": "62c42eb1-3776-4c5c-aec5-22148a267465",
                  "lat": 48.0984, "lng":  9.7835},
+}
+
+# Candidate-ring sector colour = colour of that sector's chosen station (visual coherence).
+SECTOR_COLOR: dict[str, str] = {
+    sector: ROUTE_META[f"Route_{sector}"]["color"] for sector in ("N", "NE", "E", "NW", "SW")
 }
 
 B29_CLUSTER_META: dict[str, dict] = {
@@ -212,6 +218,7 @@ class MLService:
         self._sp_df: pd.DataFrame | None = None
         self._b29_df: pd.DataFrame | None = None
         self._geo_df: pd.DataFrame | None = None   # stations_geo.parquet cache
+        self._cand_df: pd.DataFrame | None = None  # candidates_events.parquet cache (ring)
         self._ag_df: pd.DataFrame | None = None    # combined all-germany parquet cache
         self._recent_prices: dict[str, pd.DataFrame] = {}  # fuel_type → recent_prices df
 
@@ -238,6 +245,14 @@ class MLService:
             self._geo_df = pd.read_parquet(STATIONS_GEO)
             logger.info("[ml_service] stations_geo loaded, shape=%s", self._geo_df.shape)
         return self._geo_df
+
+    def _load_candidates(self) -> pd.DataFrame:
+        """Load the 80–120 km ring candidates (uuid, lat, lng, sector, n_events)."""
+        if self._cand_df is None:
+            logger.info("[ml_service] Loading candidates_events.parquet …")
+            self._cand_df = pd.read_parquet(CANDIDATES_PARQUET)
+            logger.info("[ml_service] candidates loaded, shape=%s", self._cand_df.shape)
+        return self._cand_df
 
     def _load_recent_prices(self, fuel_type: str = "diesel") -> pd.DataFrame | None:
         """Load recent real prices for all stations (built by build_recent_prices.py)."""
@@ -683,6 +698,44 @@ class MLService:
                     "n_stations": len(stations_out),
                     "scenario": "spedition",
                     "model_source": sp.get("data_source", "unknown"),
+                },
+            }
+
+        # ── Spedition + candidate ring scenario (PDF "Optimierungsstrategie") ──
+        if scenario == "spedition_ring":
+            base = self.get_geo_timeseries_real(fuel_type, date, interval, "spedition")
+            chosen = base["stations"]
+            for s in chosen:
+                s["is_chosen"] = True
+            cand_out = []
+            try:
+                cdf = self._load_candidates()
+                for _, r in cdf.iterrows():
+                    sector = str(r["sector"])
+                    cand_out.append({
+                        "id":        f"cand-{r['uuid']}",
+                        "name":      str(r.get("name", "")),
+                        "brand":     str(r.get("brand", "")),
+                        "lat":       float(r["latitude"]),
+                        "lng":       float(r["longitude"]),
+                        "sector":    sector,
+                        "color":     SECTOR_COLOR.get(sector, "#9ca3af"),
+                        "is_chosen": False,
+                        "prices":    [],
+                    })
+            except Exception as e:  # ring is decorative — never break the chosen stations
+                logger.warning("[ml_service] candidate ring unavailable: %s", e)
+            return {
+                "ok": True,
+                "stations": cand_out + chosen,
+                "meta": {
+                    "fuel_type":    "diesel",
+                    "date":         str(ref_date),
+                    "interval":     "hour",
+                    "n_stations":   len(chosen),
+                    "n_candidates": len(cand_out),
+                    "scenario":     "spedition_ring",
+                    "model_source": base["meta"].get("model_source", "unknown"),
                 },
             }
 

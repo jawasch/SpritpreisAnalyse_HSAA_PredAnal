@@ -134,7 +134,7 @@ async def get_geo_timeseries(
     date: Optional[str] = Query(None, description="YYYY-MM-DD, defaults to today"),
     interval: str = Query("hour", pattern="^(hour|day)$"),
     region: str = Query("bw", pattern="^(bw|all)$"),
-    scenario: str = Query("all", pattern="^(all|spedition|b29|germany)$"),
+    scenario: str = Query("all", pattern="^(all|spedition|spedition_ring|b29|germany)$"),
 ):
     """
     Geo-temporal timeseries for the 3D map visualisation.

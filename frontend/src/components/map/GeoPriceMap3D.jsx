@@ -34,7 +34,7 @@ function hexToRgb(hex) {
   return [r, g, b]
 }
 
-const COLUMN_RADIUS = { all: 9000, spedition: 1500, b29: 6000, germany: 25000 }
+const COLUMN_RADIUS = { all: 9000, spedition: 1500, spedition_ring: 1500, b29: 6000, germany: 25000 }
 
 // Animation speed presets (ms per frame)
 const SPEEDS = [
@@ -138,8 +138,38 @@ export default function GeoPriceMap3D({ data, fuelType = 'diesel', loading = fal
 
   const colRadius = COLUMN_RADIUS[scenario] ?? 600
 
+  // ── Candidate ring (PDF "Optimierungsstrategie"): all ~1233 candidate stations,
+  //    coloured by compass sector; the 5 chosen render as vectors/columns on top. ──
+  const candidatePoints = scenario === 'spedition_ring' && data?.stations
+    ? data.stations
+        .filter(s => s.is_chosen === false)
+        .map(s => ({
+          position: [s.lng, s.lat],
+          name:     s.name,
+          brand:    s.brand,
+          sector:   s.sector,
+          color:    s.color || '#9ca3af',
+        }))
+    : []
+
+  const candidateLayer = candidatePoints.length > 0
+    ? new ScatterplotLayer({
+        id:   'ring-candidates',
+        data: candidatePoints,
+        getPosition:     d => d.position,
+        getRadius:       1500,
+        radiusUnits:     'meters',
+        radiusMinPixels: 2.5,
+        radiusMaxPixels: 7,
+        getFillColor:    d => [...hexToRgb(d.color), 180],
+        stroked:         false,
+        pickable:        true,
+        onHover: info => setHoverInfo(info.object ? info : null),
+      })
+    : null
+
   // ── Spedition route arrows ───────────────────────────────────────────────────
-  const routeArrows = scenario === 'spedition' && stations.length > 0
+  const routeArrows = (scenario === 'spedition' || scenario === 'spedition_ring') && stations.length > 0
     ? stations.map(s => ({
         path:  [AALEN, s.position],
         name:  s.name,
@@ -228,7 +258,7 @@ export default function GeoPriceMap3D({ data, fuelType = 'diesel', loading = fal
     : null
 
   // ── Labels ───────────────────────────────────────────────────────────────────
-  const labelLayer = (scenario === 'b29' || scenario === 'spedition') && stations.length > 0
+  const labelLayer = (scenario === 'b29' || scenario === 'spedition' || scenario === 'spedition_ring') && stations.length > 0
     ? new TextLayer({
         id:   'station-labels',
         data: stations,
@@ -243,6 +273,7 @@ export default function GeoPriceMap3D({ data, fuelType = 'diesel', loading = fal
     : null
 
   const layers = [
+    candidateLayer,
     vectorShaftLayer, vectorTipLayer,
     columnLayer, scatterLayer,
     pathLayer, labelLayer,
@@ -456,10 +487,18 @@ export default function GeoPriceMap3D({ data, fuelType = 'diesel', loading = fal
         >
           <div className="font-medium text-sm">{hoverInfo.object.name}</div>
           <div className="text-gray-400">{hoverInfo.object.brand}</div>
-          <div className="text-amber-400 font-bold mt-0.5">
-            {formatPrice(hoverInfo.object.price)} €/L
-          </div>
-          <div className="text-gray-500 mt-0.5">{formattedDate} {formattedTime}</div>
+          {hoverInfo.object.price != null ? (
+            <>
+              <div className="text-amber-400 font-bold mt-0.5">
+                {formatPrice(hoverInfo.object.price)} €/L
+              </div>
+              <div className="text-gray-500 mt-0.5">{formattedDate} {formattedTime}</div>
+            </>
+          ) : (
+            <div className="text-gray-500 mt-0.5">
+              Kandidat · Sektor {hoverInfo.object.sector}
+            </div>
+          )}
         </div>
       )}
     </div>
