@@ -27,6 +27,7 @@ Usage
 CLI
 ---
     python scripts/data_transform_spedition.py [--refresh] [--debug]
+        [--fuel-type diesel|e5|e10] [--start YYYY-MM-DD] [--end YYYY-MM-DD]
 """
 
 import os
@@ -132,7 +133,7 @@ def load_raw_prices_parallel(
             as_completed(futures),
             total=len(filtered),
             desc="CSV-Dateien lesen",
-            unit="Datei",
+            unit="Datei(en)",
         ):
             result = fut.result()
             if result is not None:
@@ -352,14 +353,23 @@ class SpeditionDataLoader:
                 "then update SPEDITION_STATIONS in data_transform_spedition.py."
             )
 
-    def load(self, refresh: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def load(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        refresh: bool = False,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Return (X, y) feature matrices.
 
         Skips the 87 GB raw CSV scan if a cached parquet already exists.
         Raw CSV reading uses parallel ThreadPoolExecutor for speed.
+        start_date / end_date override the values set in __init__.
         """
         self._validate_station_uuids()
+
+        start_date_eff = start_date or self.start_date
+        end_date_eff   = end_date   or self.end_date
 
         if self.cache and self._cache_path.exists() and not refresh:
             if self.debug:
@@ -374,8 +384,8 @@ class SpeditionDataLoader:
                 self._cfg["data_path"],
                 uuids,
                 self.fuel_type,
-                self.start_date,
-                self.end_date,
+                start_date_eff,
+                end_date_eff,
             )
             if self.debug:
                 print(f"  {len(df_raw):,} price events loaded")
@@ -447,6 +457,7 @@ if __name__ == "__main__":
                         help="Enable verbose debug output")
     parser.add_argument("--train-end", default="2021-12-31 23:00", metavar="DATETIME")
     parser.add_argument("--val-end",   default="2023-12-31 23:00", metavar="DATETIME")
+    parser.add_argument("--fuel-type", default="diesel", choices=["diesel", "e5", "e10"])
     parser.add_argument("--start",     default=None, metavar="YYYY-MM-DD")
     parser.add_argument("--end",       default=None, metavar="YYYY-MM-DD")
     args = parser.parse_args()
@@ -455,7 +466,7 @@ if __name__ == "__main__":
         train_end=args.train_end,
         val_end=args.val_end,
         forecast_horizon=72,
-        fuel_type="diesel",
+        fuel_type=args.fuel_type,
         cache=True,
         debug=args.debug,
         start_date=args.start,
