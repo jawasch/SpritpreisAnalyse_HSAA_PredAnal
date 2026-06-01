@@ -14,7 +14,13 @@ Usage
 -----
     from scripts.data_transform_spedition import SpeditionDataLoader
 
-    loader = SpeditionDataLoader(forecast_horizon=72, fuel_type="diesel", debug=True)
+    loader = SpeditionDataLoader(
+        train_end="2021-12-31 23:00",
+        val_end="2023-12-31 23:00",
+        forecast_horizon=72,
+        fuel_type="diesel",
+        debug=True,
+    )
     X, y  = loader.load()
     X_train, X_val, X_test, y_train, y_val, y_test = loader.train_val_test_split(X, y)
 
@@ -25,10 +31,12 @@ CLI
 """
 
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from tqdm.auto import tqdm
 
 # Reuse constants and helpers from the B29 pipeline unchanged
 from scripts.data_transform import (
@@ -39,23 +47,111 @@ from scripts.data_transform import (
     _is_holiday,
     _rolling_linear_slope,
     load_config,
-    load_raw_prices,
 )
 
 # ── Station registry ────────────────────────────────────────────────────────
 # Populated after the Station Discovery section in spedition_mlp.ipynb.
 # Keys are human-readable route names; values are Tankerkönig UUIDs.
-# Replace the placeholder values with the UUIDs chosen from the map.
 SPEDITION_STATIONS: dict[str, str] = {
-    "Route_N":  "TO_BE_SET",  # ~100 km North  of Aalen
-    "Route_NE": "TO_BE_SET",  # ~100 km NE     of Aalen
-    "Route_E":  "TO_BE_SET",  # ~100 km East   of Aalen
-    "Route_SW": "TO_BE_SET",  # ~100 km SW     of Aalen
-    "Route_NW": "TO_BE_SET",  # ~100 km NW     of Aalen
+    "Route_E":  "19275bf1-8186-47d8-b5eb-261431afaced",  # ESSO Esso Tankstelle — OLCHING (114 km)
+    "Route_N":  "af8b14d6-0af5-4d86-a2d5-947dc569fd9a",  # AVIA AVIA Station — Ipsheim (81 km)
+    "Route_NE": "db307731-f6c4-4c45-9af4-1058e9b23397",  # AVIA AVIA Tankstelle — Nürnberg (90 km)
+    "Route_NW": "7bbb852b-e04e-48db-a1ee-8835cdbb9757",  # AVIA AVIA Tankstelle — Mühlhausen (109 km)
+    "Route_SW": "62c42eb1-3776-4c5c-aec5-22148a267465",  # RAN RAN Station — Biberach (86 km)
 }
 
 # Aalen city centre — used for distance/bearing calculations in the notebook
 AALEN_CENTER = (48.8374, 10.0936)  # (lat, lon)
+
+
+# ── Parallel raw-price loading ───────────────────────────────────────────────
+
+def _read_price_file(
+    path: Path,
+    station_uuids: set,
+    fuel_type: str,
+) -> pd.DataFrame | None:
+    """Read one daily CSV file and filter to the requested stations and fuel type."""
+    try:
+        df = pd.read_csv(
+            path,
+            usecols=["date", "station_uuid", fuel_type],
+            dtype={"station_uuid": str, fuel_type: "float32"},
+        )
+        df = df[df["station_uuid"].isin(station_uuids)]
+        return df if not df.empty else None
+    except Exception:
+        return None
+
+
+def load_raw_prices_parallel(
+    data_path: Path,
+    station_uuids: set,
+    fuel_type: str = "diesel",
+    start_date: str | None = None,
+    end_date: str | None = None,
+    max_workers: int = 8,
+) -> pd.DataFrame:
+    """
+    Parallel variant of load_raw_prices using ThreadPoolExecutor.
+
+    Reads daily price CSVs concurrently (I/O-bound) with a tqdm progress bar.
+    Only valid prices (> 0.5 €/L) are kept; results are sorted by date.
+    """
+    prices_root = data_path / "prices"
+    all_files = sorted(prices_root.rglob("*-prices.csv"))
+
+    # Determine date bounds
+    ts_start = pd.Timestamp(start_date) if start_date else None
+    if end_date:
+        ts_end = pd.Timestamp(end_date) + pd.Timedelta(days=1) - pd.Timedelta(hours=1)
+    else:
+        ts_end = None
+
+    # Pre-filter file list by date range (cheap — just parse filename)
+    filtered: list[Path] = []
+    for f in all_files:
+        date_str = f.stem.replace("-prices", "")
+        try:
+            file_date = pd.Timestamp(date_str)
+        except Exception:
+            continue
+        if ts_start and file_date < ts_start:
+            continue
+        if ts_end and file_date > ts_end:
+            continue
+        filtered.append(f)
+
+    # Parallel reads
+    chunks: list[pd.DataFrame] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = {
+            ex.submit(_read_price_file, f, station_uuids, fuel_type): f
+            for f in filtered
+        }
+        for fut in tqdm(
+            as_completed(futures),
+            total=len(filtered),
+            desc="CSV-Dateien lesen",
+            unit="Datei(en)",
+        ):
+            result = fut.result()
+            if result is not None:
+                chunks.append(result)
+
+    if not chunks:
+        raise ValueError(
+            f"No price data found for stations under {prices_root}. "
+            "Check TANKERKOENIG_DATA_PATH in .env."
+        )
+
+    raw = pd.concat(chunks, ignore_index=True)
+    raw["date"] = pd.to_datetime(raw["date"], utc=True)
+    raw = raw.dropna(subset=[fuel_type])
+    raw = raw[raw[fuel_type] > 0.5]
+    raw = raw.sort_values("date").reset_index(drop=True)
+    return raw
+
 
 # ── Aggregation ─────────────────────────────────────────────────────────────
 
@@ -74,7 +170,7 @@ def aggregate_hourly_per_station(
     Parameters
     ----------
     df_raw : pd.DataFrame
-        Output of load_raw_prices() — columns: date, station_uuid, {fuel_type}
+        Output of load_raw_prices_parallel() — columns: date, station_uuid, {fuel_type}
     station_uuids : dict[str, str]
         Mapping of route name → UUID (keys become column name suffixes)
     fuel_type : str
@@ -123,8 +219,8 @@ def build_features(
     """
     Build feature matrix X and multi-horizon target DataFrame y.
 
-    One set of lag/rolling/trend features per station column.
-    No cross-station spread features (kept per-station only for simplicity).
+    Time-of-day and day-of-week are encoded cyclically (sin/cos) so the
+    model sees hour 23 and hour 0 as neighbours, not opposites.
 
     Parameters
     ----------
@@ -151,7 +247,7 @@ def build_features(
             df[f"{col}_lag_{lag}h"] = s.shift(lag + stride)
 
         df[f"{col}_price_t"] = s.shift(stride)
-        df[f"{col}_diff"] = s.shift(stride) - s.shift(1 + stride)
+        df[f"{col}_diff"]    = s.shift(stride) - s.shift(1 + stride)
 
         for w in ROLLING_WINDOWS:
             df[f"{col}_roll_mean_{w}h"] = s.shift(stride).rolling(w, min_periods=w).mean()
@@ -160,11 +256,14 @@ def build_features(
         df[f"{col}_trend"]    = _rolling_linear_slope(s.shift(stride), TREND_WINDOW)
         df[f"{col}_momentum"] = s.shift(1 + stride) - s.shift(24 + stride)
 
+    # Cyclical time encoding — prevents the model from treating hour 23→0 as a large jump
     idx = df.index
-    df["hour"]        = idx.hour
-    df["day_of_week"] = idx.dayofweek
-    df["is_weekend"]  = (idx.dayofweek >= 5).astype(np.int8)
-    df["is_holiday"]  = _is_holiday(idx).astype(np.int8)
+    df["hour_sin"] = np.sin(2 * np.pi * idx.hour / 24)
+    df["hour_cos"] = np.cos(2 * np.pi * idx.hour / 24)
+    df["dow_sin"]  = np.sin(2 * np.pi * idx.dayofweek / 7)
+    df["dow_cos"]  = np.cos(2 * np.pi * idx.dayofweek / 7)
+    df["is_weekend"] = (idx.dayofweek >= 5).astype(np.int8)
+    df["is_holiday"] = _is_holiday(idx).astype(np.int8)
 
     target_cols: list[str] = []
     for step in range(1, forecast_horizon + 1):
@@ -191,21 +290,29 @@ class SpeditionDataLoader:
     """
     One-stop loader for the Spedition 5-station MLP pipeline.
 
+    The train/val split boundaries are passed by the caller (single source
+    of truth in the notebook) rather than hardcoded here.
+
     Caches the intermediate hourly parquet to data/processed/ so the
     raw CSV scan only runs once per configuration.
 
     Example
     -------
-        loader = SpeditionDataLoader(forecast_horizon=72, fuel_type="diesel", debug=True)
+        loader = SpeditionDataLoader(
+            train_end="2021-12-31 23:00",
+            val_end="2023-12-31 23:00",
+            forecast_horizon=72,
+            fuel_type="diesel",
+            debug=True,
+        )
         X, y = loader.load()
-        X_train, X_val, X_test, y_train, y_val, y_test = loader.train_val_test_split(X, y)
+        splits = loader.train_val_test_split(X, y)
     """
-
-    _TRAIN_END = "2021-12-31 23:00"
-    _VAL_END   = "2023-12-31 23:00"
 
     def __init__(
         self,
+        train_end: str = "2021-12-31 23:00",
+        val_end:   str = "2023-12-31 23:00",
         station_uuids: dict[str, str] | None = None,
         stride: int = 0,
         forecast_horizon: int = 72,
@@ -215,14 +322,17 @@ class SpeditionDataLoader:
         start_date: str | None = None,
         end_date: str | None = None,
     ):
+        self.train_end     = train_end
+        self.val_end       = val_end
         self.station_uuids = station_uuids or SPEDITION_STATIONS
-        self.stride = stride
+        self.stride        = stride
         self.forecast_horizon = forecast_horizon
-        self.fuel_type = fuel_type
-        self.cache = cache
-        self.debug = debug
-        self.start_date = start_date
-        self.end_date = end_date
+        self.fuel_type     = fuel_type
+        self.cache         = cache
+        self.debug         = debug
+        self.start_date    = start_date
+        self.end_date      = end_date
+
         self._cfg = load_config()
 
     @property
@@ -253,6 +363,7 @@ class SpeditionDataLoader:
         Return (X, y) feature matrices.
 
         Skips the 87 GB raw CSV scan if a cached parquet already exists.
+        Raw CSV reading uses parallel ThreadPoolExecutor for speed.
         start_date / end_date override the values set in __init__.
         """
         self._validate_station_uuids()
@@ -269,7 +380,7 @@ class SpeditionDataLoader:
             if self.debug:
                 print(f"[SpeditionDataLoader] Loading raw prices for {len(uuids)} stations …")
 
-            df_raw = load_raw_prices(
+            df_raw = load_raw_prices_parallel(
                 self._cfg["data_path"],
                 uuids,
                 self.fuel_type,
@@ -282,13 +393,17 @@ class SpeditionDataLoader:
 
             df_hourly = aggregate_hourly_per_station(df_raw, self.station_uuids, self.fuel_type)
             if self.debug:
-                print(f"  Hourly shape: {df_hourly.shape}  "
-                      f"({df_hourly.index.min()} → {df_hourly.index.max()})")
+                print(
+                    f"  Hourly shape: {df_hourly.shape}  "
+                    f"({df_hourly.index.min()} → {df_hourly.index.max()})"
+                )
 
             if self.cache:
                 df_hourly.to_parquet(self._cache_path)
                 print(f"  Cached to: {self._cache_path}")
 
+        if self.debug:
+            print("[SpeditionDataLoader] Building feature matrix …")
         X, y = build_features(df_hourly, self.stride, self.forecast_horizon, self.fuel_type)
         if self.debug:
             print(f"[SpeditionDataLoader] Feature matrix ready: X={X.shape}, y={y.shape}")
@@ -301,13 +416,13 @@ class SpeditionDataLoader:
     ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame,
                pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """
-        Temporal split (no shuffle):
-          train : 2014-06 → 2021-12
-          val   : 2022-01 → 2023-12
-          test  : 2024-01 → present
+        Temporal split (no shuffle) using the boundaries set in the constructor:
+          train : start → train_end
+          val   : train_end+1h → val_end
+          test  : val_end+1h  → present
         """
-        train_end = min(pd.Timestamp(self._TRAIN_END), X.index.max())
-        val_end   = min(pd.Timestamp(self._VAL_END),   X.index.max())
+        train_end = min(pd.Timestamp(self.train_end), X.index.max())
+        val_end   = min(pd.Timestamp(self.val_end),   X.index.max())
 
         X_train = X.loc[:train_end]
         y_train = y.loc[:train_end]
@@ -340,12 +455,16 @@ if __name__ == "__main__":
                         help="Rebuild parquet cache from raw CSVs even if it already exists")
     parser.add_argument("--debug",     action="store_true",
                         help="Enable verbose debug output")
+    parser.add_argument("--train-end", default="2021-12-31 23:00", metavar="DATETIME")
+    parser.add_argument("--val-end",   default="2023-12-31 23:00", metavar="DATETIME")
     parser.add_argument("--fuel-type", default="diesel", choices=["diesel", "e5", "e10"])
     parser.add_argument("--start",     default=None, metavar="YYYY-MM-DD")
     parser.add_argument("--end",       default=None, metavar="YYYY-MM-DD")
     args = parser.parse_args()
 
     loader = SpeditionDataLoader(
+        train_end=args.train_end,
+        val_end=args.val_end,
         forecast_horizon=72,
         fuel_type=args.fuel_type,
         cache=True,
