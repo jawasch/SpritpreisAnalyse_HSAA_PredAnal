@@ -17,13 +17,14 @@ Recorded stdout/figures live under backend/app/walkthrough/recorded/ and are ser
 statically at /api/v1/walkthrough/assets/… (mounted in main.py).
 """
 import asyncio
+import hmac
 import json
 import os
 import sys
 from pathlib import Path
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 
 router = APIRouter()
@@ -34,6 +35,24 @@ RECORDED_DIR = Path(__file__).resolve().parent.parent / "walkthrough" / "recorde
 RECORDED_DIR.mkdir(parents=True, exist_ok=True)
 
 RUNNER = SCRIPTS_DIR / "walkthrough_run.py"
+
+# ── Live-run protection ───────────────────────────────────────────────────────
+# The "Reload" button runs real scripts. It is gated behind a PIN checked here,
+# server-side. If no PIN is configured the live run is disabled entirely (Demo
+# replay stays open for everyone).
+WALKTHROUGH_PIN = os.getenv("WALKTHROUGH_PIN", "").strip()
+
+
+def _live_enabled() -> bool:
+    return bool(WALKTHROUGH_PIN)
+
+
+def _check_pin(pin: str | None) -> None:
+    """Raise 403 if live runs are disabled, 401 if the PIN is missing/wrong."""
+    if not _live_enabled():
+        raise HTTPException(403, "Live-Ausführung deaktiviert (keine PIN konfiguriert).")
+    if not pin or not hmac.compare_digest(pin, WALKTHROUGH_PIN):
+        raise HTTPException(401, "Falsche PIN.")
 
 # ── Step registry ─────────────────────────────────────────────────────────────
 # kind: "light" runs in seconds; "heavy" loads/trains and is confirm-gated in the UI.
@@ -275,6 +294,21 @@ def _push(msg: dict) -> None:
         _state["messages"].pop(0)
 
 
+# NOTE: fixed-name GET routes must be declared BEFORE the "/{phase}" catch-all,
+# otherwise FastAPI matches them as a phase name.
+@router.get("/auth-status")
+async def auth_status():
+    """Whether live runs are possible at all (i.e. a PIN is configured)."""
+    return {"live_enabled": _live_enabled()}
+
+
+@router.post("/verify-pin")
+async def verify_pin(x_walkthrough_pin: str | None = Header(default=None, alias="X-Walkthrough-Pin")):
+    """Validate a PIN without starting a run (used by the unlock dialog)."""
+    _check_pin(x_walkthrough_pin)
+    return {"ok": True}
+
+
 @router.get("/{phase}")
 async def get_phase(phase: str):
     if phase not in PHASE_ORDER:
@@ -309,7 +343,11 @@ async def _run_step(step_id: str):
 
 
 @router.post("/run/{step_id}")
-async def run_step(step_id: str):
+async def run_step(
+    step_id: str,
+    x_walkthrough_pin: str | None = Header(default=None, alias="X-Walkthrough-Pin"),
+):
+    _check_pin(x_walkthrough_pin)
     if step_id not in STEPS:
         raise HTTPException(404, f"Unknown step '{step_id}'")
     if _state["running"]:

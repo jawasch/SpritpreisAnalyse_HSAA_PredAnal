@@ -36,10 +36,11 @@ export const CONTENT = [
     phase: 'business', author: 'Jannis',
     title: 'Optimierungsstrategie',
     body: [
-      'Auswahl von 5 Stationen in 5 Himmelsrichtungen (N, NE, E, SW, NW).',
+      'Auswahl von 5 Stationen in 5 Himmelsrichtungen (N, NE, E, SW, NW) — aus 1 233 Kandidaten im Ring 80–120 km um Aalen.',
       'Leitfrage: An welcher der fünf Stationen ist Diesel in den nächsten 72 Stunden am günstigsten — und welchen LKW sollten wir dorthin schicken?',
     ],
     embed: 'exploration-map',
+    embedScenario: 'spedition_ring',
   },
   // ── 2 · Data Understanding ──────────────────────────────────────────────────
   {
@@ -86,15 +87,16 @@ date,station_uuid,diesel,e5,e10,dieselchange,e5change,e10change
       'Alle Stationen folgen demselben Takt — der Rohölpreis treibt ganz Deutschland gemeinsam.',
     ],
     figure: 'eda_correlation.png',
+    figureWide: true,
   },
   {
     phase: 'data', author: 'Daniel',
     title: 'Explorative Datenanalyse — Intraday',
     body: [
-      'Intraday-Profil: Preise steigen morgens und fallen abends — ein stabiles tägliches Muster.',
+      'Mittlerer Dieselpreis je Stunde und Region: Preise steigen morgens und fallen abends — ein stabiles tägliches Muster.',
       'Fehlende Stunden füllen wir vorwärts. Dieses Muster ist später ein starkes Feature.',
     ],
-    figure: 'eda_intraday.png',
+    embed: 'intraday-region',
   },
   {
     phase: 'data', author: 'Daniel',
@@ -164,6 +166,7 @@ date,station_uuid,diesel,e5,e10,dieselchange,e5change,e10change
       'Tiefere Netze schneiden trotz vieler mehr Parameter schlechter ab.',
     ],
     figure: 'arch_std.png',
+    figureWide: true,
   },
   {
     phase: 'modeling', author: 'Daniel',
@@ -173,6 +176,7 @@ date,station_uuid,diesel,e5,e10,dieselchange,e5change,e10change
       'Ein flaches, schmales Netz reicht für dieses Problem aus.',
     ],
     figure: 'arch_patient.png',
+    figureWide: true,
   },
   {
     phase: 'modeling', author: 'Daniel',
@@ -194,6 +198,7 @@ Fold 5: [——————————————————————Train
       'Ø MAE = 2,28 ct/L. Die Streuung zeigt: manche Marktphasen sind strukturell schwerer.',
     ],
     figure: 'cv_folds.png',
+    figureWide: true,
   },
   // ── 5 · Evaluation ──────────────────────────────────────────────────────────
   {
@@ -220,6 +225,7 @@ Fold 5: [——————————————————————Train
       'Preisspitzen werden geglättet statt ausgeschlagen.',
     ],
     figure: 'actual_vs_pred_14d.png',
+    figureWide: true,
   },
   {
     phase: 'evaluation', author: 'Jannis',
@@ -241,6 +247,7 @@ Fold 5: [——————————————————————Train
       'Am stärksten in den ersten ~24 Stunden.',
     ],
     figure: 'pick_accuracy_horizon.png',
+    figureWide: true,
   },
   {
     phase: 'evaluation', author: 'Jannis',

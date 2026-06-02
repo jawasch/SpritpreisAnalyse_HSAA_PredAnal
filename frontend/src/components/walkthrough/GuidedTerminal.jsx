@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { api } from '../../services/api'
 import ConfirmDialog from './ConfirmDialog'
+import PinDialog from './PinDialog'
+
+const PIN_KEY = 'wt_pin'
 
 /** Tiny code renderer — monospace with green comments (no syntax-highlight dep). */
 function Code({ src }) {
@@ -18,18 +21,22 @@ function Code({ src }) {
   )
 }
 
-function StepCard({ step }) {
+function StepCard({ step, liveEnabled = true }) {
   const [output, setOutput] = useState([])      // live/demo output lines
   const [figs, setFigs]       = useState(step.figures)
   const [busy, setBusy]       = useState(false)   // a run/demo is in progress
   const [mode, setMode]       = useState(null)    // 'demo' | 'live'
   const [confirm, setConfirm] = useState(false)
+  const [pinOpen, setPinOpen]   = useState(false)
+  const [pinError, setPinError] = useState(null)
+  const [pinBusy, setPinBusy]   = useState(false)
   const esRef    = useRef(null)
   const timerRef = useRef(null)
+  const pinRef   = useRef(null)  // PIN to use for the pending live run
 
   // Reset when the selected step changes
   useEffect(() => {
-    setOutput([]); setFigs(step.figures); setBusy(false); setMode(null)
+    setOutput([]); setFigs(step.figures); setBusy(false); setMode(null); setPinOpen(false)
     return () => { clearInterval(timerRef.current); esRef.current?.close() }
   }, [step.step_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -50,14 +57,24 @@ function StepCard({ step }) {
     }, 45)
   }, [step])
 
-  // ── Reload: actually re-run the step live via SSE ───────────────────────────
-  const runLive = useCallback(async () => {
+  // ── Reload: actually re-run the step live via SSE (PIN-gated) ───────────────
+  const runLive = useCallback(async (pin) => {
     clearInterval(timerRef.current); esRef.current?.close()
     setMode('live'); setBusy(true); setOutput(['$ python walkthrough_run.py ' + step.step_id])
     try {
-      await api.walkthrough.run(step.step_id)
+      await api.walkthrough.run(step.step_id, pin)
     } catch (e) {
-      setOutput(prev => [...prev, '[Fehler beim Start] ' + e]); setBusy(false); return
+      const msg = String(e)
+      setBusy(false)
+      if (/PIN|deaktiviert/i.test(msg)) {
+        // Server rejected the stored PIN (e.g. it was changed) → re-prompt.
+        sessionStorage.removeItem(PIN_KEY)
+        setOutput(prev => [...prev, '[Gesperrt] ' + msg])
+        setPinError(msg); setPinOpen(true)
+      } else {
+        setOutput(prev => [...prev, '[Fehler beim Start] ' + msg])
+      }
+      return
     }
     const es = new EventSource(api.walkthrough.streamUrl())
     esRef.current = es
@@ -75,10 +92,32 @@ function StepCard({ step }) {
     es.onerror = () => { es.close(); setBusy(false) }
   }, [step])
 
-  const onReload = () => {
+  // After a valid PIN: heavy steps still confirm, light steps run straight away.
+  const proceed = useCallback((pin) => {
+    pinRef.current = pin
     if (step.kind === 'heavy') setConfirm(true)
-    else runLive()
+    else runLive(pin)
+  }, [step.kind, runLive])
+
+  const onReload = () => {
+    if (!liveEnabled) return
+    const pin = sessionStorage.getItem(PIN_KEY)
+    if (pin) proceed(pin)
+    else { setPinError(null); setPinOpen(true) }
   }
+
+  // PinDialog submit → verify server-side, cache for the session, then proceed.
+  const submitPin = useCallback(async (pin) => {
+    setPinBusy(true); setPinError(null)
+    try {
+      await api.walkthrough.verifyPin(pin)
+      sessionStorage.setItem(PIN_KEY, pin)
+      setPinBusy(false); setPinOpen(false)
+      proceed(pin)
+    } catch (e) {
+      setPinBusy(false); setPinError(String(e) || 'Falsche PIN.')
+    }
+  }, [proceed])
 
   return (
     <div className="space-y-3">
@@ -99,12 +138,16 @@ function StepCard({ step }) {
         </button>
         <button
           onClick={onReload}
-          disabled={busy}
+          disabled={busy || !liveEnabled}
+          title={liveEnabled ? 'Live ausführen (PIN erforderlich)' : 'Live-Ausführung deaktiviert'}
           className="px-3 py-1.5 text-xs font-semibold bg-brand-orange text-white rounded hover:bg-brand-orange/90 disabled:opacity-40"
         >
-          ⟳ Reload {step.kind === 'heavy' && <span className="opacity-70">(live)</span>}
+          {liveEnabled ? '🔒' : '🚫'} Reload {step.kind === 'heavy' && <span className="opacity-70">(live)</span>}
         </button>
-        {step.kind === 'heavy' && (
+        {!liveEnabled && (
+          <span className="text-[10px] text-gray-400">Live deaktiviert — nur Demo</span>
+        )}
+        {liveEnabled && step.kind === 'heavy' && (
           <span className="text-[10px] text-amber-400">schwer · lädt/trainiert wirklich</span>
         )}
         {busy && <span className="text-[10px] text-gray-400 animate-pulse">läuft …</span>}
@@ -134,8 +177,16 @@ function StepCard({ step }) {
         message={'Dies lädt die echten Daten und rechnet/trainiert wirklich.\n' +
                  'Das kann von einigen Sekunden bis zu mehreren Minuten dauern.'}
         confirmLabel="Ja, live ausführen"
-        onConfirm={() => { setConfirm(false); runLive() }}
+        onConfirm={() => { setConfirm(false); runLive(pinRef.current) }}
         onCancel={() => setConfirm(false)}
+      />
+
+      <PinDialog
+        open={pinOpen}
+        error={pinError}
+        busy={pinBusy}
+        onSubmit={submitPin}
+        onCancel={() => { setPinOpen(false); setPinError(null) }}
       />
     </div>
   )
@@ -146,12 +197,20 @@ export default function GuidedTerminal({ phase }) {
   const [steps, setSteps] = useState([])
   const [active, setActive] = useState(0)
   const [error, setError]   = useState(null)
+  const [liveEnabled, setLiveEnabled] = useState(true)
 
   useEffect(() => {
     api.walkthrough.steps(phase)
       .then(r => { setSteps(r.steps || []); setActive(0) })
       .catch(e => setError(String(e)))
   }, [phase])
+
+  // Whether the server allows live runs at all (a PIN is configured).
+  useEffect(() => {
+    api.walkthrough.authStatus()
+      .then(r => setLiveEnabled(!!r.live_enabled))
+      .catch(() => setLiveEnabled(false))
+  }, [])
 
   if (error || steps.length === 0) {
     // Still render the tab so the layout is consistent; just no content.
@@ -203,7 +262,7 @@ export default function GuidedTerminal({ phase }) {
               {!error && steps[active] && (
                 <>
                   <p className="text-xs font-semibold text-white/90 mb-2">{steps[active].title}</p>
-                  <StepCard step={steps[active]} />
+                  <StepCard step={steps[active]} liveEnabled={liveEnabled} />
                 </>
               )}
             </div>

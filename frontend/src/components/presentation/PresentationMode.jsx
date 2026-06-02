@@ -6,6 +6,7 @@ import RecordedFigure from '../walkthrough/RecordedFigure'
 import AllStationsMap from '../map/AllStationsMap'
 import ExplorationMapEmbed from './embeds/ExplorationMapEmbed'
 import ExplorationTrendsEmbed from './embeds/ExplorationTrendsEmbed'
+import IntradayRegionEmbed from './embeds/IntradayRegionEmbed'
 import DeploymentEmbed from './embeds/DeploymentEmbed'
 import DeploymentCalcEmbed from './embeds/DeploymentCalcEmbed'
 import PipelineDiagram from './diagrams/PipelineDiagram'
@@ -17,6 +18,7 @@ import BusinessCaseChart from './diagrams/BusinessCaseChart'
 const EMBEDS = {
   'exploration-map':    ExplorationMapEmbed,
   'exploration-trends': ExplorationTrendsEmbed,
+  'intraday-region':    IntradayRegionEmbed,
   'deployment':         DeploymentEmbed,
   'deployment-calc':    DeploymentCalcEmbed,
 }
@@ -77,7 +79,7 @@ function ContentBody({ slide }) {
     return (
       <div className="flex-1 flex flex-col gap-4 min-h-0">
         {bullets}
-        <div className="flex-1 flex flex-col min-h-0 overflow-auto"><Embed /></div>
+        <div className="flex-1 flex flex-col min-h-0 overflow-auto"><Embed initialScenario={slide.embedScenario} /></div>
       </div>
     )
   }
@@ -88,7 +90,7 @@ function ContentBody({ slide }) {
     return (
       <div className="flex-1 flex flex-col gap-4 min-h-0">
         {bullets}
-        <div className="flex-1 min-h-0 flex items-center justify-center overflow-auto"><Diagram /></div>
+        <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden"><Diagram /></div>
       </div>
     )
   }
@@ -179,6 +181,18 @@ function ContentBody({ slide }) {
           </li>
         ))}
       </ol>
+    )
+  }
+
+  // Wide figure (Landscape-Chart) — kompakte Bullets oben, Grafik groß darunter
+  if (slide.figureWide && slide.figure) {
+    return (
+      <div className="flex-1 flex flex-col gap-3 min-h-0">
+        {bullets}
+        <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+          <RecordedFigure name={slide.figure} caption={slide.title} variant="fit" />
+        </div>
+      </div>
     )
   }
 
@@ -327,7 +341,6 @@ export default function PresentationMode({ open, startPhase, onClose }) {
         <Chrome caption={phaseLabel(slide.phase)} index={idx + 1} total={total} />
         <div className="flex items-center gap-3 mb-3">
           <span className={`text-xs font-mono px-2 py-0.5 ${t.accent} text-brand-charcoal`}>{phaseNum(slide.phase)}</span>
-          <span className="text-xs bg-brand-charcoal text-white rounded-full px-3 py-0.5 font-medium">{slide.author}</span>
         </div>
         <h1 className="text-5xl font-bold text-brand-charcoal leading-tight mb-6">{slide.title}</h1>
 
@@ -359,8 +372,12 @@ export default function PresentationMode({ open, startPhase, onClose }) {
         <button onClick={onClose} className="text-white/70 hover:text-white text-sm font-mono">✕ ESC</button>
       </div>
 
-      {/* slide */}
-      <div className="flex-1 relative">{inner}</div>
+      {/* slide — fixed 16:9 stage, letterboxed; content adapts/scrolls within */}
+      <div className="flex-1 flex items-center justify-center overflow-hidden bg-black">
+        <div className="relative w-full max-w-[calc((100vh-3.5rem)*16/9)] aspect-video max-h-full overflow-hidden shadow-2xl">
+          {inner}
+        </div>
+      </div>
 
       {/* bottom nav */}
       <div className="h-14 bg-brand-charcoal flex items-center justify-between px-8 shrink-0">

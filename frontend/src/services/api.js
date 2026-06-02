@@ -62,14 +62,19 @@ export const api = {
   },
 
   walkthrough: {
-    steps:     (phase)  => client.get(`/api/v1/walkthrough/${phase}`),
-    run:       (stepId) => client.post(`/api/v1/walkthrough/run/${stepId}`),
-    streamUrl: ()       => `${import.meta.env.VITE_API_URL || ''}/api/v1/walkthrough/run-state/stream`,
-    assetUrl:  (url)    => `${import.meta.env.VITE_API_URL || ''}${url}`,
+    steps:      (phase)        => client.get(`/api/v1/walkthrough/${phase}`),
+    run:        (stepId, pin)  => client.post(`/api/v1/walkthrough/run/${stepId}`, null,
+                                   { headers: pin ? { 'X-Walkthrough-Pin': pin } : {} }),
+    authStatus: ()             => client.get('/api/v1/walkthrough/auth-status'),
+    verifyPin:  (pin)          => client.post('/api/v1/walkthrough/verify-pin', null,
+                                   { headers: { 'X-Walkthrough-Pin': pin } }),
+    streamUrl:  ()             => `${import.meta.env.VITE_API_URL || ''}/api/v1/walkthrough/run-state/stream`,
+    assetUrl:   (url)          => `${import.meta.env.VITE_API_URL || ''}${url}`,
   },
 
   eda: {
     summary: () => client.get('/api/v1/eda/summary'),
+    intradayByRegion: () => client.get('/api/v1/eda/intraday-by-region'),
   },
 
   oil: {

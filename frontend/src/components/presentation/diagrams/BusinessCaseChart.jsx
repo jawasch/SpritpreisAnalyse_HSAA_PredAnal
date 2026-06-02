@@ -26,12 +26,12 @@ export default function BusinessCaseChart() {
   const xTicks = [0, 5, 10, 15, 20, 25, 30]
 
   return (
-    <div className="w-full">
-      <p className="text-center text-sm font-semibold text-brand-charcoal mb-1">
+    <div className="w-full h-full flex flex-col">
+      <p className="text-center text-sm font-semibold text-brand-charcoal mb-1 shrink-0">
         Kumulative Kostenabweichung über 30 Tage · 25 LKW · 3 750 L/Tag
       </p>
-      <p className="text-center text-xs text-brand-charcoal/50 mb-2">(gegenüber Basispreis 1,70 €/L)</p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+      <p className="text-center text-xs text-brand-charcoal/50 mb-2 shrink-0">(gegenüber Basispreis 1,70 €/L)</p>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className="w-full flex-1 min-h-0">
         {/* grid + y ticks */}
         {yTicks.map(v => (
           <g key={v}>
@@ -58,7 +58,7 @@ export default function BusinessCaseChart() {
         <text x={x(30) - 4} y={y(-11250) + 16} textAnchor="end" fontSize="11" fontWeight="700" className="fill-red-700">−11 250 € nach 30 Tagen</text>
       </svg>
       {/* legend */}
-      <div className="flex justify-center gap-4 mt-1">
+      <div className="flex justify-center gap-4 mt-1 shrink-0">
         {LINES.map(l => (
           <span key={l.price} className="flex items-center gap-1.5 text-xs text-brand-charcoal/70">
             <span className="inline-block w-5 h-0.5" style={{ background: l.color }} />

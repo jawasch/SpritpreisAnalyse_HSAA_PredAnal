@@ -22,6 +22,19 @@ export default function RecordedFigure({ name, caption, variant = 'card', classN
     )
   }
 
+  // "fit" — scale to fit the parent box (both dimensions), keep aspect ratio.
+  // Used by wide presentation chart slides so the image fills without overflowing.
+  if (variant === 'fit') {
+    return (
+      <img
+        src={src}
+        alt={caption || name}
+        className={`max-h-full max-w-full w-auto h-auto object-contain rounded bg-white ${className}`}
+        onError={e => { e.currentTarget.style.display = 'none' }}
+      />
+    )
+  }
+
   return (
     <figure className={`bg-white border border-gray-200 rounded p-2 ${className}`}>
       <img
