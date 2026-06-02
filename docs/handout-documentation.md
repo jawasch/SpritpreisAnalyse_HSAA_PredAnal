@@ -180,7 +180,7 @@ Die Auswahl erfolgt automatisiert über **Haversine-Distanz** und Kompasswinkel.
 
 **Haversine-Formel — Großkreisabstand auf der Kugeloberfläche**
 
-Die Euklidische Distanz auf Koordinaten liefert für geographische Abstände systematisch falsche Ergebnisse, weil Längengrade menrere zum Äquator hin konvergieren. Die Haversine-Formel leitet sich aus der sphärischen Trigonometrie ab und berechnet den **Großkreisabstand**, also die kürzeste Verbindung zweier Punkte auf einer Kugeloberfläche.
+Die Euklidische Distanz auf Koordinaten liefert für geographische Abstände systematisch falsche Ergebnisse, weil Längengrade zum Äquator hin konvergieren. Die Haversine-Formel leitet sich aus der sphärischen Trigonometrie ab und berechnet den **Großkreisabstand**, also die kürzeste Verbindung zweier Punkte auf einer Kugeloberfläche. Der Begriff *Haversine* geht auf Inman (1835) zurück [11].
 
 
 ### Explorative Datenanalyse
@@ -259,7 +259,7 @@ Pro Zeitschritt und Station werden folgende Merkmale berechnet. Somit ergeben si
 
 ### Normierung
 
-Alle Features werden mit dem **StandardScaler** auf Mittelwert 0 und Standardabweichung 1 normiert — damit kein Merkmal allein durch seine Größenordnung das Training dominiert. Kritisch: Der Scaler wird **ausschließlich auf den Trainingsdaten** angepasst (`fit`) und dann auf Validierung und Test nur angewendet (`transform`). Würde man den Scaler auf allen Daten anpassen, flössen Zukunftsinformationen ins Training und es würde zum **Datenleck** kommen.
+Alle Features werden mit dem **StandardScaler** [7] auf Mittelwert 0 und Standardabweichung 1 normiert — damit kein Merkmal allein durch seine Größenordnung das Training dominiert. Kritisch: Der Scaler wird **ausschließlich auf den Trainingsdaten** angepasst (`fit`) und dann auf Validierung und Test nur angewendet (`transform`). Würde man den Scaler auf allen Daten anpassen, flössen Zukunftsinformationen ins Training und es würde zum **Datenleck** kommen.
 
 ### Ziel-Features
 
@@ -271,7 +271,7 @@ Pro Zeitschritt sagt das Modell gleichzeitig **5 Stationen × 72 Zeithorizonte =
 
 ### Algorithmus: Multi-Layer Perceptron (MLP)
 
-Ein MLP bildet nichtlineare Zusammenhänge zwischen Eingangsgrößen und Zielgrößen ab. Es besteht aus mehreren Schichten von Neuronen, die über gewichtete Verbindungen gekoppelt sind.
+Ein MLP bildet nichtlineare Zusammenhänge zwischen Eingangsgrößen und Zielgrößen ab. Es besteht aus mehreren Schichten von Neuronen, die über gewichtete Verbindungen gekoppelt sind. Das Konzept des Neurons geht auf Rosenblatt (1958) [1] zurück; die moderne Formulierung mehrschichtiger Netze und des Backpropagation-Algorithmus wurde von Rumelhart, Hinton & Williams (1986) [2] geprägt. Eine umfassende Darstellung findet sich in Goodfellow, Bengio & Courville (2016) [5].
 
 **Struktur — und Belegung im Projekt:**
 
@@ -301,7 +301,7 @@ a = f( w₁x₁ + w₂x₂ + … + b )
 |---------|-------------|--------------|
 | 1 | Forward Pass | Eingabe wird schichtweise verarbeitet → Vorhersage ŷ |
 | 2 | Loss | Verlustfunktion misst Abweichung: L = (y − ŷ)² |
-| 3 | Backpropagation | Kettenregel bestimmt, wie stark jedes Gewicht zum Fehler beigetragen hat: ∂L/∂wᵢⱼ |
+| 3 | Backpropagation | Kettenregel bestimmt, wie stark jedes Gewicht zum Fehler beigetragen hat: ∂L/∂wᵢⱼ [2] |
 | 4 | Gewichtsupdate | w ← w − η · ∂L/∂w |
 
 > **Lernrate η:** Zu groß → Divergenz. Zu klein → langsame Konvergenz.
@@ -311,9 +311,9 @@ a = f( w₁x₁ + w₂x₂ + … + b )
 
 Eine Aktivierungsfunktion wird nach der gewichteten Summe eines Neurons angewendet und entscheidet, welches Signal an die nächste Schicht weitergegeben wird. Ohne sie wäre ein beliebig tiefes Netz mathematisch äquivalent zu einer einzigen linearen Transformation — die Schichten könnten keine nichtlinearen Muster lernen.
 
-Dieses Projekt verwendet **ReLU** (*Rectified Linear Unit*): f(z) = max(0, z) — negative Werte werden auf 0 gesetzt, positive unverändert weitergegeben.
+Dieses Projekt verwendet **ReLU** (*Rectified Linear Unit*): f(z) = max(0, z) — negative Werte werden auf 0 gesetzt, positive unverändert weitergegeben [3].
 
-ReLU wird gegenüber älteren Funktionen wie Sigmoid bevorzugt, weil ihr Gradient für z > 0 konstant 1 bleibt. Bei Sigmoid geht der Gradient für große |z| gegen 0 — das Fehlersignal stirbt beim Rückpropagieren durch mehrere Schichten aus (*Vanishing Gradient*). ReLU vermeidet diesen Effekt und trainiert dadurch stabiler.
+ReLU wird gegenüber älteren Funktionen wie Sigmoid bevorzugt, weil ihr Gradient für z > 0 konstant 1 bleibt. Bei Sigmoid geht der Gradient für große |z| gegen 0 — das Fehlersignal stirbt beim Rückpropagieren durch mehrere Schichten aus (*Vanishing Gradient* [4]). ReLU vermeidet diesen Effekt und trainiert dadurch stabiler.
 
 **Overfitting**
 
@@ -322,7 +322,7 @@ ReLU wird gegenüber älteren Funktionen wie Sigmoid bevorzugt, weil ihr Gradien
 | Trainingsfehler ↓, Validierungsfehler ↑ | Overfitting — Modell hat Trainingsdaten auswendig gelernt |
 | Beide Fehler hoch | Underfitting — Modell zu einfach für das Problem |
 
-Gegenmaßnahmen: **Dropout**, **L2-Regularisierung**, **Early Stopping**.
+Gegenmaßnahmen: **Dropout** [6], **L2-Regularisierung**, **Early Stopping**.
 
 **Warum MLP für dieses Problem?**
 
@@ -401,7 +401,7 @@ Um die Architekturwahl abzusichern, wird ein **TimeSeriesSplit** mit 5 Folds auf
 
 **Warum kein klassisches k-Fold?**
 
-Beim Standard-k-Fold werden die Daten zufällig in Blöcke aufgeteilt — ein Modell könnte dann auf Daten von Oktober 2020 trainieren und auf Daten von März 2018 validieren, also faktisch *in die Vergangenheit schauen*. Bei Zeitreihen ist das ein Datenleck: das Modell hätte Zugriff auf spätere Preismuster, die zum Validierungszeitpunkt noch unbekannt waren. TimeSeriesSplit erzwingt die kausale Richtung: das Modell lernt immer auf einem früheren Zeitraum und wird auf einem späteren getestet.
+Beim Standard-k-Fold werden die Daten zufällig in Blöcke aufgeteilt — ein Modell könnte dann auf Daten von Oktober 2020 trainieren und auf Daten von März 2018 validieren, also faktisch *in die Vergangenheit schauen*. Bei Zeitreihen ist das ein Datenleck: das Modell hätte Zugriff auf spätere Preismuster, die zum Validierungszeitpunkt noch unbekannt waren. TimeSeriesSplit erzwingt die kausale Richtung: das Modell lernt immer auf einem früheren Zeitraum und wird auf einem späteren getestet. Hyndman & Athanasopoulos (2021) [8] bezeichnen dieses Vorgehen als *Time Series Cross-Validation* und empfehlen es als Standardverfahren für Zeitreihenprobleme.
 
 ```
 Fold 1: [──Train (≈13.000 h)──][Val (≈10.700 h)]
@@ -467,7 +467,7 @@ Die zentrale Kennzahl des Projekts: Wie oft wählt das Modell die Station mit de
 
 Neben der reinen Preisabweichung wird gemessen, ob die **Reihenfolge** der Stationen (von günstigst bis teuerst) korrekt vorhergesagt wird — denn für die Dispatch-Entscheidung zählt das Ranking, nicht der exakte Centbetrag.
 
-Der **Spearman-Rangkorrelationskoeffizient** ρₛ misst, wie gut zwei Rangreihen übereinstimmen. Hier wird für jeden Zeitschritt die vorhergesagte Preisreihenfolge der fünf Stationen mit der tatsächlichen verglichen. 
+Der **Spearman-Rangkorrelationskoeffizient** ρₛ [9] misst, wie gut zwei Rangreihen übereinstimmen. Hier wird für jeden Zeitschritt die vorhergesagte Preisreihenfolge der fünf Stationen mit der tatsächlichen verglichen. 
 | ρₛ | Interpretation |
 |---|---|
 | **1,0** | Stationsreihenfolge wird jederzeit perfekt vorhergesagt |
@@ -576,13 +576,13 @@ Die Funktion `recommend_cheapest_station` (in [`model_utils.py`][mu]) gibt dem D
 
 Der `spread_eur`-Wert ergibt sich aus: Preisdifferenz (günstigste vs. teuerste Station) × tatsächlicher Tagesverbrauch je LKW (150 L). Er zeigt dem Disponenten den konkreten finanziellen Vorteil für einen einzelnen LKW-Tank.
 
+Mittels **React** ließe sich die Dispatch-Empfehlung als interaktives Dashboard aufbauen: Disponent wählt den Horizont, das Modell zeigt Rangfolge und Preise — direkt im Browser, ohne Python-Kenntnisse.
+
 ### Modell speichern und laden
 
 Das fertig trainierte Modell, beide Scaler und die Spalteninformationen werden als `.joblib`-Datei gespeichert. So kann das Modell in Echtzeit neu geladen werden, ohne das Training zu wiederholen — Voraussetzung für einen produktiven Einsatz.
 
-### Mögliche Erweiterung: Dashboard
-
-Mittels **React** ließe sich die Dispatch-Empfehlung als interaktives Dashboard aufbauen: Disponent wählt den Horizont, das Modell zeigt Rangfolge und Preise — direkt im Browser, ohne Python-Kenntnisse.
+### Mögliche Erweiterung: Nachrichtenabfrage
 
 Eine automatisierte Abfrage von Nachrichtentickern und der mögliche Einfluss dieser Ereignisse auf den Ölpreis und dadurch auf den Kraftstoffpreis wäre ein weiterer denkbarer Schritt. 
 
@@ -643,6 +643,8 @@ Das Modell ist ein erster, funktionsfähiger Baustein für ein datengetriebenes 
 
 ## Anhang: Projektstruktur
 
+Das Projekt folgt dem **CRISP-DM**-Prozessmodell (Wirth & Hipp, 2000 [10]).
+
 | Datei / Ordner | Aufgabe im Projekt | CRISP-DM-Phase |
 |---|---|---|
 | [`notebooks/spedition_mlp.ipynb`][nb] | Hauptnotebook — enthält den vollständigen, kommentierten Ablauf von der Fragestellung bis zur Empfehlung | alle Phasen |
@@ -655,3 +657,29 @@ Das Modell ist ein erster, funktionsfähiger Baustein für ein datengetriebenes 
 | `data/models/spedition_mlp.joblib` | Gespeichertes Modell inkl. Scaler und Spalteninformationen — ladefähig ohne Neutraining | Deployment |
 
 *HS Aalen — Modul Predictive Analytics, Semester 1*
+
+---
+
+## Literaturverzeichnis
+
+[1] Rosenblatt, F. (1958). The perceptron: A probabilistic model for information storage and organization in the brain. *Psychological Review*, 65(6), 386–408. https://doi.org/10.1037/h0042519
+
+[2] Rumelhart, D. E., Hinton, G. E., & Williams, R. J. (1986). Learning representations by back-propagating errors. *Nature*, 323, 533–536. https://doi.org/10.1038/323533a0
+
+[3] Glorot, X., Bordes, A., & Bengio, Y. (2011). Deep sparse rectifier neural networks. In *Proceedings of the 14th International Conference on Artificial Intelligence and Statistics (AISTATS 2011)*, Fort Lauderdale, 11–13 April 2011, PMLR 15, pp. 315–323. https://proceedings.mlr.press/v15/glorot11a.html
+
+[4] Glorot, X., & Bengio, Y. (2010). Understanding the difficulty of training deep feedforward neural networks. In *Proceedings of the 13th International Conference on Artificial Intelligence and Statistics (AISTATS 2010)*, Sardinia, 13–15 May 2010, PMLR 9, pp. 249–256. https://proceedings.mlr.press/v9/glorot10a.html
+
+[5] Goodfellow, I., Bengio, Y., & Courville, A. (2016). *Deep Learning*. MIT Press. ISBN 978-0-262-03561-3. https://www.deeplearningbook.org
+
+[6] Srivastava, N., Hinton, G., Krizhevsky, A., Sutskever, I., & Salakhutdinov, R. (2014). Dropout: A simple way to prevent neural networks from overfitting. *Journal of Machine Learning Research*, 15(1), 1929–1958. https://www.jmlr.org/papers/v15/srivastava14a.html
+
+[7] Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel, O., … Duchesnay, E. (2011). Scikit-learn: Machine learning in Python. *Journal of Machine Learning Research*, 12, 2825–2830. https://arxiv.org/abs/1201.0490
+
+[8] Hyndman, R. J., & Athanasopoulos, G. (2021). *Forecasting: Principles and Practice* (3. Aufl.). OTexts. https://otexts.com/fpp3/ (Abschnitt 5.10: Time Series Cross-Validation)
+
+[9] Spearman, C. (1904). The proof and measurement of association between two things. *The American Journal of Psychology*, 15(1), 72–101. http://webspace.ship.edu/pgmarr/Geo441/Readings/Spearman%201904%20-%20The%20Proof%20and%20Measurement%20of%20Association%20between%20Two%20Things.pdf
+
+[10] Wirth, R., & Hipp, J. (2000). CRISP-DM: Towards a standard process model for data mining. In *Proceedings of the 4th International Conference on the Practical Applications of Knowledge Discovery and Data Mining*, Manchester, 11–13 April 2000, pp. 29–40. https://www.semanticscholar.org/paper/CRISP-DM:-Towards-a-Standard-Process-Model-for-Data-Wirth-Hipp/48b9293cfd4297f855867ca278f7069abc6a9c24
+
+[11] Inman, J. (1835). *Navigation and Nautical Astronomy: For the Use of British Seamen* (3. Aufl.). London: W. Woodward, C. & J. Rivington.
